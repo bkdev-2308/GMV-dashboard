@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử Phiên - BeyondK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/dashboard-all.css">
+    <style>
+        .history-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .back-link {
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .session-filter-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-group select {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            min-width: 300px;
+        }
+
+        .filter-divider {
+            width: 1px;
+            height: 40px;
+            background: var(--border);
+        }
+
+        .data-table-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .data-table td {
+            font-size: 0.875rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <img src="/static/logo.ico" alt="BeyondK">
+                <span class="sidebar-logo-text">BeyondK</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin" class="nav-item" title="Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="/admin/analytics" class="nav-item" title="Analytics">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                </a>
+                <a href="/admin/history" class="nav-item active" title="Lịch sử">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span class="nav-text">Lịch sử</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="history-container">
+                <div class="page-header">
+                    <h1 class="page-title">📜 Lịch sử Phiên</h1>
+                    <a href="/admin" class="back-link">← Về Dashboard</a>
+                </div>
+
+                <!-- Filter Dropdowns -->
+                <div class="session-filter-card">
+                    <div class="filter-group">
+                        <label>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                                <polyline points="17 2 12 7 7 2" />
+                            </svg>
+                            Phiên đã archive
+                        </label>
+                        <select id="sessionFilter" onchange="onSessionChange()">
+                            <option value="">-- Chọn phiên --</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-divider"></div>
+
+                    <div class="filter-group">
+                        <label>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            Khung giờ
+                        </label>
+                        <select id="timeslotFilter" onchange="onTimeslotChange()" disabled>
+                            <option value="">-- Chọn khung giờ --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Stats Summary -->
+                <div id="statsSummary" class="stats-summary" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statProducts">--</div>
+                        <div class="stat-label">Tổng sản phẩm</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statGMV">--</div>
+                        <div class="stat-label">Tổng GMV</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statNMV">--</div>
+                        <div class="stat-label">Tổng NMV</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statGap">--</div>
+                        <div class="stat-label">Gap (GMV - NMV)</div>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div id="dataTableContainer" class="data-table-container" style="display: none;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tên sản phẩm</th>
+                                <th>GMV</th>
+                                <th>NMV</th>
+                                <th>Clicks</th>
+                                <th>ATC</th>
+                                <th>Đơn hàng</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    Chọn phiên và khung giờ để xem dữ liệu lịch sử
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+
+        async function loadSessions() {
+            try {
+                const resp = await fetch('/api/archived-sessions');
+                const data = await resp.json();
+
+                const select = document.getElementById('sessionFilter');
+                select.innerHTML = '<option value="">-- Chọn phiên --</option>';
+
+                if (data.success && data.sessions.length > 0) {
+                    data.sessions.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.session_id;
+                        opt.textContent = `${s.session_title} (${s.item_count} SP, ${s.timeslot_count} khung giờ)`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading sessions:', e);
+            }
+        }
+
+        async function onSessionChange() {
+            const sessionId = document.getElementById('sessionFilter').value;
+            const timeslotSelect = document.getElementById('timeslotFilter');
+
+            if (!sessionId) {
+                timeslotSelect.disabled = true;
+                timeslotSelect.innerHTML = '<option value="">-- Chọn khung giờ --</option>';
+                document.getElementById('statsSummary').style.display = 'none';
+                document.getElementById('dataTableContainer').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            currentSessionId = sessionId;
+
+            try {
+                const resp = await fetch('/api/history/timeslots?session_id=' + sessionId);
+                const data = await resp.json();
+
+                timeslotSelect.innerHTML = '<option value="">-- Chọn khung giờ --</option>';
+
+                if (data.success && data.timeslots.length > 0) {
+                    data.timeslots.forEach(t => {
+                        const dt = new Date(t.archived_at);
+                        const label = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+                            ' ' + dt.toLocaleDateString('vi-VN') + ` (${t.item_count} SP)`;
+                        const opt = document.createElement('option');
+                        opt.value = t.archived_at;
+                        opt.textContent = label;
+                        timeslotSelect.appendChild(opt);
+                    });
+                    timeslotSelect.disabled = false;
+                } else {
+                    timeslotSelect.disabled = true;
+                }
+            } catch (e) {
+                console.error('Error loading timeslots:', e);
+                timeslotSelect.disabled = true;
+            }
+        }
+
+        async function onTimeslotChange() {
+            const archivedAt = document.getElementById('timeslotFilter').value;
+
+            if (!archivedAt || !currentSessionId) {
+                document.getElementById('statsSummary').style.display = 'none';
+                document.getElementById('dataTableContainer').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/history/data?session_id=' + currentSessionId + '&archived_at=' + archivedAt);
+                const data = await resp.json();
+
+                document.getElementById('emptyState').style.display = 'none';
+
+                if (!data.success || data.data.length === 0) {
+                    document.getElementById('dataTableBody').innerHTML = '<tr><td colspan="7">Không có dữ liệu</td></tr>';
+                    document.getElementById('dataTableContainer').style.display = 'block';
+                    return;
+                }
+
+                // Calculate stats
+                let totalGMV = 0, totalNMV = 0;
+                data.data.forEach(item => {
+                    totalGMV += item.revenue || 0;
+                    totalNMV += item.confirmed_revenue || 0;
+                });
+                const gap = totalGMV - totalNMV;
+                const gapPercent = totalGMV > 0 ? ((gap / totalGMV) * 100).toFixed(1) : 0;
+
+                document.getElementById('statProducts').textContent = data.data.length;
+                document.getElementById('statGMV').textContent = formatCurrency(totalGMV);
+                document.getElementById('statNMV').textContent = formatCurrency(totalNMV);
+                document.getElementById('statGap').textContent = formatCurrency(gap) + ` (${gapPercent}%)`;
+                document.getElementById('statsSummary').style.display = 'grid';
+
+                // Render table
+                let html = '';
+                data.data.forEach((item, idx) => {
+                    html += `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>${item.item_name || 'N/A'}</td>
+                            <td>${formatCurrency(item.revenue)}</td>
+                            <td>${formatCurrency(item.confirmed_revenue)}</td>
+                            <td>${item.clicks || 0}</td>
+                            <td>${item.add_to_cart || 0}</td>
+                            <td>${item.orders || 0}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('dataTableBody').innerHTML = html;
+                document.getElementById('dataTableContainer').style.display = 'block';
+            } catch (e) {
+                document.getElementById('dataTableBody').innerHTML = '<tr><td colspan="7">Lỗi: ' + e.message + '</td></tr>';
+                document.getElementById('dataTableContainer').style.display = 'block';
+            }
+        }
+
+        function formatCurrency(value) {
+            if (!value) return '0 đ';
+            if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B đ';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M đ';
+            return new Intl.NumberFormat('vi-VN').format(value) + ' đ';
+        }
+
+        // Init
+        loadSessions();
+    </script>
+</body>
+
+</html>

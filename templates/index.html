@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeyondK Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard-all.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo" onclick="toggleSidebar()">
+                <img src="/static/logo.ico" alt="BeyondK">
+                <span class="sidebar-logo-text">BeyondK Network</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin" class="nav-item active" title="Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="/admin/analytics" class="nav-item" title="Analytics">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    <span class="nav-text">Analytics</span>
+                </a>
+                <a href="/admin/history" class="nav-item" title="History">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span class="nav-text">History</span>
+                </a>
+            </nav>
+            <a href="/admin/setting" class="nav-item" title="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span class="nav-text">Settings</span>
+            </a>
+        </aside>
+
+        <main class="main-content" id="mainContent">
+            <header class="page-header">
+                <div class="page-title-section">
+                    <h1>BeyondK Dashboard</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="sync-badge" id="syncBadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg><span id="lastSync">Đang tải...</span></div>
+                    <button class="btn btn-secondary" onclick="refreshData()"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>Làm mới</button>
+                </div>
+            </header>
+            <!-- Session Filter Card -->
+            <div class="session-filter-card" id="sessionFilterCard">
+                <div class="filter-group">
+                    <label>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                            <polyline points="17 2 12 7 7 2" />
+                        </svg>
+                        Phiên Live
+                    </label>
+                    <select id="sessionFilter" onchange="onSessionChange()">
+                        <option value="">-- Tất cả phiên --</option>
+                    </select>
+                </div>
+
+                <div class="session-divider"></div>
+
+                <div class="filter-group">
+                    <label>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        Khung giờ
+                    </label>
+                    <select id="historySlotFilter" onchange="onHistorySlotChange()" disabled>
+                        <option value="">🟢 Live hiện tại</option>
+                    </select>
+                </div>
+
+                <div class="session-info-badge" id="sessionInfoBadge" style="display:none;">
+                </div>
+            </div>
+            <div class="stats-grid">
+                <!-- Card 1: Có link / Tổng SP -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg></div>
+                    </div>
+                    <div class="stat-value" id="linkRatio">--</div>
+                    <div class="stat-label">Có link / Tổng SP</div>
+                </div>
+                <!-- Card 2: Total GMV -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="12" y1="1" x2="12" y2="23" />
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                            </svg></div>
+                    </div>
+                    <div class="stat-value" id="totalRevenue">--</div>
+                    <div class="stat-label">Tổng GMV</div>
+                </div>
+                <!-- Card 3: Total NMV -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon" style="background: #d1fae5; color: #059669;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="totalConfirmedRevenue">--</div>
+                    <div class="stat-label">Tổng NMV</div>
+                </div>
+                <!-- Card 4: Gap (GMV - NMV) -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M2 12h20" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="gapRevenue">--</div>
+                    <div class="stat-label">Gap (GMV - NMV)</div>
+                </div>
+                <!-- Card 5: Top #1 GMV -->
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg></div>
+                    </div>
+                    <div class="stat-value" id="topRevenue">--</div>
+                    <div class="stat-label">Top #1 GMV</div>
+                </div>
+            </div>
+
+            <div class="charts-section">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title" id="chartTitle">Top 10 Sản phẩm theo GMV</h3>
+                        <div class="chart-tabs">
+                            <button class="chart-tab active" data-metric="revenue">GMV</button>
+                            <button class="chart-tab" data-metric="clicks">Clicks</button>
+                            <button class="chart-tab" data-metric="add_to_cart">ATC</button>
+                            <button class="chart-tab" data-metric="orders">Đơn hàng</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Phân bố theo ngành hàng</h3>
+                    </div>
+                    <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+                </div>
+            </div>
+            <div class="table-section">
+                <div class="table-header">
+                    <div class="table-title-group">
+                        <h3 class="table-title">Top Sản phẩm</h3><span class="table-count" id="tableCount">0 sản
+                            phẩm</span>
+                    </div>
+                    <div class="table-actions">
+                        <div class="bulk-copy-group">
+                            <select id="bulkCopyCount" class="select-control">
+                                <option value="50">Top 50</option>
+                                <option value="100">Top 100</option>
+                                <option value="200">Top 200</option>
+                                <option value="300">Top 300</option>
+                                <option value="400">Top 400</option>
+                                <option value="500">Top 500</option>
+                            </select>
+                            <button class="btn btn-success" onclick="bulkCopyLinks()"><svg viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                </svg>Copy Links</button>
+                            <button class="btn btn-secondary" onclick="filterTopGap()">📊 Top 10 Gap</button>
+                        </div>
+                        <select id="linkFilter" class="select-control" onchange="currentPage=1; applyFiltersAndSort()">
+                            <option value="all">📦 Tất cả</option>
+                            <option value="with-link">✅ Có link</option>
+                            <option value="no-link">❌ Không có link</option>
+                        </select>
+
+                        <div class="shop-filter-wrapper">
+                            <input type="text" id="shopIdFilter" class="select-control" placeholder="🔍 Shop ID..."
+                                list="shopIdList" oninput="filterShopIdSuggestions()">
+                            <datalist id="shopIdList"></datalist>
+                        </div>
+                        <div class="search-input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg><input type="text" id="searchInput" placeholder="Tìm kiếm..."
+                                onkeyup="debounceSearch()">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-wrapper" id="tableWrapper">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="pagination-wrapper"
+                    style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-top: 1px solid var(--border);">
+                    <div
+                        style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                        <span>Hiển thị:</span>
+                        <select id="perPageSelectBottom" class="select-control"
+                            style="padding: 0.375rem 0.75rem; min-width: 80px;" onchange="changePerPageBottom()">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span>/trang</span>
+                    </div>
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+        </svg><span id="toastMessage">Đã copy!</span></div>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/session.js"></script>
+    <script>
+        let allData = [];  // Data hiển thị trên trang hiện tại
+        let fullData = [];  // Cache toàn bộ data từ server
+        let filteredData = [];  // Data sau khi filter/search
+        let currentPage = 1;
+        let perPage = 10;
+        let totalPages = 1;
+        let shopIds = [];
+        let searchTimeout = null;
+        let revenueChart = null;
+        let categoryChart = null;
+        let currentSort = { column: 'revenue', direction: 'desc' };  // Mặc định sort GMV cao nhất
+        let dataLoaded = false;  // Flag để biết đã load data chưa
+
+        // LocalStorage cache config
+        function getCacheKey() {
+            return currentSessionId ? `gmv_dashboard_data_${currentSessionId}` : 'gmv_dashboard_data';
+        }
+        const CACHE_TTL = 5 * 60 * 1000;  // 5 phút trong milliseconds
+        const CACHE_VERSION = 4;  // Tăng version - force clear lúc 15:50
+
+        function getLocalCache() {
+            try {
+                const cached = localStorage.getItem(getCacheKey());
+                if (!cached) return null;
+                const parsed = JSON.parse(cached);
+                // Check version - invalidate if version mismatch
+                if (parsed.version !== CACHE_VERSION) {
+                    console.log('[LocalCache] Version mismatch, clearing old cache');
+                    localStorage.removeItem(getCacheKey());
+                    return null;
+                }
+                if (Date.now() - parsed.timestamp > CACHE_TTL) {
+                    localStorage.removeItem(getCacheKey());
+                    return null;  // Cache expired
+                }
+                console.log('[LocalCache] Using cached data (' + parsed.data.length + ' products)');
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setLocalCache(data, shopIds, stats, lastSync) {
+            try {
+                localStorage.setItem(getCacheKey(), JSON.stringify({
+                    version: CACHE_VERSION,
+                    data: data,
+                    shopIds: shopIds,
+                    stats: stats,
+                    lastSync: lastSync,
+                    timestamp: Date.now()
+                }));
+                console.log('[LocalCache] Saved ' + data.length + ' products to cache');
+            } catch (e) {
+                console.log('[LocalCache] Failed to save:', e.message);
+            }
+        }
+
+        function clearLocalCache() {
+            localStorage.removeItem(getCacheKey());
+            console.log('[LocalCache] Cache cleared');
+        }
+        function showSkeletonLoading() {
+            // Skeleton cho table
+            const tableWrapper = document.getElementById('tableWrapper');
+            let skeletonHTML = '<table class="data-table"><thead><tr>';
+            skeletonHTML += '<th>#</th><th>Sản phẩm</th><th>GMV</th><th>NMV</th><th>Clicks</th><th>ATC</th><th>Orders</th><th>Link</th>';
+            skeletonHTML += '</tr></thead><tbody>';
+            for (let i = 0; i < 10; i++) {
+                skeletonHTML += '<tr class="skeleton-row">';
+                skeletonHTML += '<td><div class="skeleton-line short"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line long"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line medium"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line medium"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line short"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line short"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line short"></div></td>';
+                skeletonHTML += '<td><div class="skeleton-line short"></div></td>';
+                skeletonHTML += '</tr>';
+            }
+            skeletonHTML += '</tbody></table>';
+            tableWrapper.innerHTML = skeletonHTML;
+
+            // Skeleton cho stats
+            ['linkRatio', 'totalRevenue', 'totalConfirmedRevenue', 'gapRevenue', 'topRevenue'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('skeleton');
+            });
+        }
+
+        function hideSkeletonLoading() {
+            ['linkRatio', 'totalRevenue', 'totalConfirmedRevenue', 'gapRevenue', 'topRevenue'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('skeleton');
+            });
+        }
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { currentPage = 1; applyFiltersAndSort(); }, 300);
+        }
+
+        let shopFilterTimeout = null;
+        function debounceShopFilter() {
+            clearTimeout(shopFilterTimeout);
+            shopFilterTimeout = setTimeout(() => { currentPage = 1; applyFiltersAndSort(); }, 300);
+        }
+
+        function changePerPage() {
+            perPage = parseInt(document.getElementById('perPageSelect').value);
+            currentPage = 1;
+            applyFiltersAndSort();
+        }
+
+        async function loadData(forceRefresh = false) {
+            // Nếu đã có data và không force refresh, chỉ cần apply filters client-side
+            if (dataLoaded && !forceRefresh) {
+                applyFiltersAndSort();
+                return;
+            }
+            // 🆕 HIỆN SKELETON NGAY LẬP TỨC
+            showSkeletonLoading();
+            // Check localStorage cache first
+            if (!forceRefresh) {
+                const localCache = getLocalCache();
+                if (localCache) {
+                    fullData = localCache.data;
+                    shopIds = localCache.shopIds || [];
+                    dataLoaded = true;
+
+                    // Populate shop filter
+                    if (shopIds.length > 0) {
+                        const datalist = document.getElementById('shopIdList');
+                        datalist.innerHTML = '';
+                        shopIds.forEach(id => {
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            datalist.appendChild(opt);
+                        });
+                    }
+
+                    document.getElementById('lastSync').textContent = localCache.lastSync || '14.01 Lan Ngọc & Diệp Lê';
+                    hideSkeletonLoading();
+                    applyFiltersAndSort();
+                    loadChartsLazy();
+                    console.log('[LocalCache] Loaded from cache for session:', currentSessionId || 'all');
+                    return;
+                }
+            }
+
+            // Load từ server khi không có cache
+            console.log('[Server] Fetching data from /api/all-data...');
+            let url = `/api/all-data`;
+
+            // Add session_id filter if selected
+            if (currentSessionId) {
+                url += `?session_id=${encodeURIComponent(currentSessionId)}`;
+                console.log('[Server] Filtering by session_id:', currentSessionId);
+            }
+
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.success) {
+                    fullData = result.data;
+                    dataLoaded = true;
+                    console.log('[Server] Loaded ' + fullData.length + ' products (from_cache: ' + result.from_cache + ')');
+
+                    // Populate shop_id filter datalist
+                    if (result.shop_ids && result.shop_ids.length > 0) {
+                        shopIds = result.shop_ids;
+                        const datalist = document.getElementById('shopIdList');
+                        datalist.innerHTML = '';
+                        shopIds.forEach(id => {
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            datalist.appendChild(opt);
+                        });
+                    }
+
+                    document.getElementById('lastSync').textContent = result.last_sync || '14.01 Lan Ngọc & Diệp Lê';
+
+                    // Lưu vào localStorage cache (chỉ khi không có session filter)
+                    if (!currentSessionId) {
+                        setLocalCache(result.data, result.shop_ids, result.stats, result.last_sync);
+                    }
+                    hideSkeletonLoading();
+                    applyFiltersAndSort();
+                    loadChartsLazy();
+                }
+            } catch (error) {
+                console.error('[Server] Error:', error);
+                hideSkeletonLoading();
+                document.getElementById('tableWrapper').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+            }
+        }
+        // Filter Shop ID suggestions - only show 5 matching suggestions
+        function filterShopIdSuggestions() {
+            const input = document.getElementById('shopIdFilter');
+            const datalist = document.getElementById('shopIdList');
+            const value = input.value.trim();
+
+            // Clear datalist first
+            datalist.innerHTML = '';
+
+            // Only show suggestions if user typed at least 1 character
+            if (value.length >= 1 && shopIds.length > 0) {
+                // Filter and limit to 5 suggestions
+                const filtered = shopIds.filter(id => id.includes(value)).slice(0, 5);
+                filtered.forEach(id => {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    datalist.appendChild(opt);
+                });
+            }
+
+            // Also trigger the filter
+            debounceShopFilter();
+        }
+        // Change per page from bottom dropdown
+        function changePerPageBottom() {
+            const select = document.getElementById('perPageSelectBottom');
+            perPage = parseInt(select.value);
+            currentPage = 1;
+            // Sync with top dropdown if exists
+            const topSelect = document.getElementById('perPageSelect');
+            if (topSelect) topSelect.value = perPage;
+            applyFiltersAndSort();
+        }
+
+        // Client-side filtering, sorting và pagination - INSTANT!
+        function applyFiltersAndSort(forcePage1 = false) {
+            // Force reset to page 1 when sorting
+            if (forcePage1) {
+                currentPage = 1;
+                console.log('[applyFiltersAndSort] Forced page reset to 1');
+            }
+
+            // Chờ load data nếu chưa có
+            if (!fullData || fullData.length === 0) {
+                console.log('applyFiltersAndSort: fullData is empty, waiting for loadData');
+                return;
+            }
+
+            const shopId = document.getElementById('shopIdFilter').value.trim();
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const linkFilter = document.getElementById('linkFilter').value;
+
+            // Filter data
+            filteredData = fullData.filter(item => {
+                // Shop ID filter
+                if (shopId && item.shop_id !== shopId) return false;
+
+                // Search filter
+                if (search) {
+                    const matchName = item.item_name && item.item_name.toLowerCase().includes(search);
+                    const matchId = item.item_id && item.item_id.toLowerCase().includes(search);
+                    if (!matchName && !matchId) return false;
+                }
+
+                // Link filter
+                if (linkFilter === 'with-link' && !item.link_sp) return false;
+                if (linkFilter === 'no-link' && item.link_sp) return false;
+
+                return true;
+            });
+
+            // Sort data (only if user has selected a column)
+            if (currentSort.column) {
+                filteredData.sort((a, b) => {
+                    const valA = a[currentSort.column] || 0;
+                    const valB = b[currentSort.column] || 0;
+                    return currentSort.direction === 'desc' ? valB - valA : valA - valB;
+                });
+
+                // Debug log
+                const minVal = filteredData.length > 0 ? filteredData[filteredData.length - 1][currentSort.column] : 0;
+                const maxVal = filteredData.length > 0 ? filteredData[0][currentSort.column] : 0;
+                console.log('[SORT] Column: ' + currentSort.column + ', Direction: ' + currentSort.direction + ', Items: ' + filteredData.length);
+                console.log('[SORT] First item value: ' + maxVal + ', Last item value: ' + minVal);
+            } else {
+                console.log('[NO SORT] Showing data as-is from database (' + filteredData.length + ' items)');
+            }
+            console.log('[PAGE] Page ' + currentPage + ': showing items ' + ((currentPage - 1) * perPage + 1) + ' to ' + Math.min(currentPage * perPage, filteredData.length));
+
+            // Calculate pagination
+            totalPages = Math.ceil(filteredData.length / perPage) || 1;
+            if (currentPage > totalPages) currentPage = 1;
+
+            // Get current page data
+            const startIndex = (currentPage - 1) * perPage;
+            allData = filteredData.slice(startIndex, startIndex + perPage);
+
+            // Update stats
+            const totalRevenue = filteredData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+            const totalConfirmedRevenue = filteredData.reduce((sum, item) => sum + (item.confirmed_revenue || 0), 0);
+            const withLink = filteredData.filter(item => item.link_sp).length;
+            const topRevenue = fullData.length > 0 ? Math.max(...fullData.map(item => item.revenue || 0)) : 0;
+            const gapRevenue = totalRevenue - totalConfirmedRevenue;
+
+            document.getElementById('linkRatio').textContent = withLink.toLocaleString() + ' / ' + filteredData.length.toLocaleString();
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalConfirmedRevenue').textContent = formatCurrency(totalConfirmedRevenue);
+            const gapPercent = totalRevenue > 0 ? ((gapRevenue / totalRevenue) * 100).toFixed(1) : 0;
+            document.getElementById('gapRevenue').textContent = formatCurrency(gapRevenue) + ` (${gapPercent}%)`;
+            document.getElementById('topRevenue').textContent = formatCurrency(topRevenue);
+
+            // Render table và pagination
+            console.log('[RENDER] allData first 3 values:', allData.slice(0, 3).map(x => x.revenue));
+            renderTable(allData, startIndex);
+            renderPaginationClient();
+            document.getElementById('tableCount').textContent = filteredData.length + ' sản phẩm';
+        }
+
+        // Apply filters without sorting (data already sorted from server)
+        function applyFiltersNoSort() {
+            if (!fullData || fullData.length === 0) {
+                console.log('[applyFiltersNoSort] fullData is empty');
+                return;
+            }
+
+            const perPage = parseInt(document.getElementById('perPage').value) || 10;
+            const shopFilter = document.getElementById('shopIdFilter').value.trim();
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            const linkFilter = document.getElementById('linkFilter').value;
+
+            // Filter data (no sort - data already sorted from server)
+            filteredData = fullData.filter(item => {
+                if (shopFilter && item.shop_id !== shopFilter) return false;
+                if (searchTerm) {
+                    const name = (item.item_name || '').toLowerCase();
+                    const id = (item.item_id || '').toLowerCase();
+                    if (!name.includes(searchTerm) && !id.includes(searchTerm)) return false;
+                }
+                if (linkFilter === 'with-link' && !item.link_sp) return false;
+                if (linkFilter === 'no-link' && item.link_sp) return false;
+                return true;
+            });
+
+            console.log('[NO CLIENT SORT] Data already sorted from server, showing ' + filteredData.length + ' items');
+            console.log('[PAGE] Page ' + currentPage + ': showing items ' + ((currentPage - 1) * perPage + 1) + ' to ' + Math.min(currentPage * perPage, filteredData.length));
+
+            // Calculate pagination
+            totalPages = Math.ceil(filteredData.length / perPage) || 1;
+            if (currentPage > totalPages) currentPage = 1;
+
+            // Get current page data
+            const startIndex = (currentPage - 1) * perPage;
+            allData = filteredData.slice(startIndex, startIndex + perPage);
+
+            // Update stats
+            const totalRevenue = filteredData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+            const totalConfirmedRevenue = filteredData.reduce((sum, item) => sum + (item.confirmed_revenue || 0), 0);
+            const withLink = filteredData.filter(item => item.link_sp).length;
+            const topRevenue = fullData.length > 0 ? Math.max(...fullData.map(item => item.revenue || 0)) : 0;
+            const gapRevenue = totalRevenue - totalConfirmedRevenue;
+
+            document.getElementById('linkRatio').textContent = withLink.toLocaleString() + ' / ' + filteredData.length.toLocaleString();
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalConfirmedRevenue').textContent = formatCurrency(totalConfirmedRevenue);
+            const gapPercent = totalRevenue > 0 ? ((gapRevenue / totalRevenue) * 100).toFixed(1) : 0;
+            document.getElementById('gapRevenue').textContent = formatCurrency(gapRevenue) + ` (${gapPercent}%)`;
+            document.getElementById('topRevenue').textContent = formatCurrency(topRevenue);
+
+            // Render table and pagination
+            console.log('[RENDER] allData first 3 values:', allData.slice(0, 3).map(x => x.revenue));
+            renderTable(allData, startIndex);
+            renderPaginationClient();
+            document.getElementById('tableCount').textContent = filteredData.length + ' sản phẩm';
+        }
+
+        // Pagination dùng client-side data
+        function renderPaginationClient() {
+            let html = '<div class="pagination-info">Trang ' + currentPage + ' / ' + totalPages + ' (' + filteredData.length + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (currentPage > 1 ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage - 1) + ')" ' + (currentPage > 1 ? '' : 'disabled') + '>◀</button>';
+
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === currentPage ? ' active' : '') + '" onclick="goToPage(' + i + ')' + '">' + i + '</button>';
+            }
+
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage + 1) + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + totalPages + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function renderPagination(pagination) {
+            let html = '<div class="pagination-info">Trang ' + pagination.page + ' / ' + pagination.total_pages + ' (' + pagination.total + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (pagination.has_prev ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page - 1) + ')" ' + (pagination.has_prev ? '' : 'disabled') + '>◀</button>';
+
+            // Show page numbers
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === pagination.page ? ' active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+            }
+
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page + 1) + ')" ' + (pagination.has_next ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + pagination.total_pages + ')" ' + (pagination.has_next ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            applyFiltersAndSort();  // Client-side - instant!
+        }
+
+        let currentChartMetric = 'revenue';
+
+        async function loadTopChart(metric = 'revenue') {
+            currentChartMetric = metric;
+            const titles = {
+                revenue: 'Top 10 Sản phẩm theo GMV',
+                clicks: 'Top 10 Sản phẩm theo Clicks',
+                add_to_cart: 'Top 10 Sản phẩm theo ATC',
+                orders: 'Top 10 Sản phẩm theo Đơn hàng'
+            };
+            document.getElementById('chartTitle').textContent = titles[metric];
+
+            try {
+                const res = await fetch(`/api/analytics/top-products?metric=${metric}`);
+                const data = await res.json();
+                if (data.success) {
+                    renderTopChart(data.data, metric);
+                }
+            } catch (e) { console.error('Error loading chart:', e); }
+        }
+        async function loadCategoryChart(metric = 'revenue') {
+            const titles = {
+                revenue: 'Phân bố theo ngành hàng (GMV)',
+                clicks: 'Phân bố theo ngành hàng (Clicks)',
+                add_to_cart: 'Phân bố theo ngành hàng (ATC)',
+                orders: 'Phân bố theo ngành hàng (Đơn hàng)'
+            };
+            // Update title if element exists
+            const titleEl = document.querySelector('.chart-card:nth-child(2) .chart-title');
+            if (titleEl) titleEl.textContent = titles[metric];
+
+            try {
+                const res = await fetch(`/api/analytics/category-distribution?metric=${metric}`);
+                const data = await res.json();
+                if (data.success) {
+                    renderCategoryChartWithMetric(data.data, metric);
+                }
+            } catch (e) { console.error('Error loading category chart:', e); }
+        }
+
+        function renderCategoryChartWithMetric(data, metric) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChart) categoryChart.destroy();
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            let chartData = data.slice(0, 8);
+            if (data.length > 8) {
+                const otherValue = data.slice(8).reduce((sum, d) => sum + (d[metric] || 0), 0);
+                chartData.push({ cluster: 'Khác', [metric]: otherValue, count: data.slice(8).length });
+            }
+            const suffix = metric === 'revenue' ? ' đ' : '';
+
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.map(d => d.cluster || 'Không xác định'),
+                    datasets: [{
+                        data: chartData.map(d => d[metric] || 0),
+                        backgroundColor: colors.slice(0, chartData.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((ctx.raw / total) * 100).toFixed(1);
+                                    return ctx.label + ': ' + ctx.raw.toLocaleString() + suffix + ' (' + percent + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        function renderTopChart(data, metric) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            const labels = { revenue: 'GMV (VNĐ)', clicks: 'Clicks', add_to_cart: 'ATC', orders: 'Đơn hàng' };
+
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [{
+                        label: labels[metric],
+                        data: data.map(d => d[metric]),
+                        backgroundColor: colors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.raw.toLocaleString() + (metric === 'revenue' ? ' đ' : '')
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: v => {
+                                    if (metric === 'revenue') {
+                                        if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+                                        if (v >= 1e6) return (v / 1e6).toFixed(0) + 'M';
+                                    }
+                                    return v.toLocaleString();
+                                }
+                            }
+                        },
+                        y: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // Tab click handler
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('chart-tab')) {
+                document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                loadTopChart(e.target.dataset.metric);
+            }
+        });
+        function renderRevenueChart(data) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [{
+                        label: 'GMV(VNĐ)',
+                        data: data.map(d => d.revenue),
+                        backgroundColor: colors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return ctx.raw.toLocaleString() + ' đ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                    if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderCategoryChart(data) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChart) categoryChart.destroy();
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            let chartData = data.slice(0, 8);
+            if (data.length > 8) {
+                const otherRevenue = data.slice(8).reduce((sum, d) => sum + d.revenue, 0);
+                chartData.push({ cluster: 'Khác', revenue: otherRevenue, count: data.slice(8).length });
+            }
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.map(d => d.cluster || 'Không xác định'),
+                    datasets: [{
+                        data: chartData.map(d => d.revenue),
+                        backgroundColor: colors.slice(0, chartData.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((ctx.raw / total) * 100).toFixed(1);
+                                    return ctx.label + ': ' + ctx.raw.toLocaleString() + ' đ (' + percent + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Pagination dùng client-side data
+        function renderPaginationClient() {
+            let html = '<div class="pagination-info">Trang ' + currentPage + ' / ' + totalPages + ' (' + filteredData.length + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (currentPage > 1 ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage - 1) + ')" ' + (currentPage > 1 ? '' : 'disabled') + '>◀</button>';
+
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === currentPage ? ' active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+            }
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage + 1) + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + totalPages + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function renderPagination(pagination) {
+            let html = '<div class="pagination-info">Trang ' + pagination.page + ' / ' + pagination.total_pages + ' (' + pagination.total + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (pagination.has_prev ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page - 1) + ')" ' + (pagination.has_prev ? '' : 'disabled') + '>◀</button>';
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === pagination.page ? ' active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+            }
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page + 1) + ')" ' + (pagination.has_next ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + pagination.total_pages + ')" ' + (pagination.has_next ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            applyFiltersAndSort();
+        }
+        function loadChartsLazy() {
+            // Delay charts 500ms để bảng hiện trước
+            setTimeout(() => {
+                loadCharts();
+            }, 500);
+        }
+        async function loadCharts() {
+            // Thêm session_id vào URL nếu có
+            const sessionParam = currentSessionId ? `?session_id=${encodeURIComponent(currentSessionId)}` : '';
+
+            try {
+                const topRes = await fetch('/api/analytics/top-products' + sessionParam);
+                const topData = await topRes.json();
+                if (topData.success) { renderRevenueChart(topData.data); }
+            } catch (e) { console.error('Error loading top products chart:', e); }
+
+            try {
+                const catRes = await fetch('/api/analytics/category-distribution' + sessionParam);
+                const catData = await catRes.json();
+                if (catData.success) { renderCategoryChart(catData.data); }
+            } catch (e) { console.error('Error loading category chart:', e); }
+        }
+
+        function renderRevenueChart(data) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: data.map(d => d.name), datasets: [{ label: 'GMV(VNĐ)', data: data.map(d => d.revenue), backgroundColor: colors, borderRadius: 6 }] },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ctx.raw.toLocaleString() + ' đ' } } },
+                    scales: { x: { ticks: { callback: (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(0) + 'M' : v.toLocaleString() } }, y: { ticks: { font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // Apply filters without sorting (data already sorted from server)
+        function applyFiltersNoSort() {
+            if (!fullData || fullData.length === 0) {
+                console.log('[applyFiltersNoSort] fullData is empty');
+                return;
+            }
+
+            const perPageEl = document.getElementById('perPageSelect');
+            const perPageVal = perPageEl ? parseInt(perPageEl.value) || perPage : perPage;
+            const shopFilterEl = document.getElementById('shopIdFilter');
+            const shopFilter = shopFilterEl ? shopFilterEl.value.trim() : '';
+            const searchEl = document.getElementById('searchInput');
+            const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            const linkFilterEl = document.getElementById('linkFilter');
+            const linkFilter = linkFilterEl ? linkFilterEl.value : 'all';
+
+            // Filter data (no sort - data already sorted from server)
+            filteredData = fullData.filter(item => {
+                if (shopFilter && item.shop_id !== shopFilter) return false;
+                if (searchTerm) {
+                    const name = (item.item_name || '').toLowerCase();
+                    const id = (item.item_id || '').toLowerCase();
+                    if (!name.includes(searchTerm) && !id.includes(searchTerm)) return false;
+                }
+                if (linkFilter === 'with-link' && !item.link_sp) return false;
+                if (linkFilter === 'no-link' && item.link_sp) return false;
+                return true;
+            });
+
+            console.log('[NO CLIENT SORT] Data already sorted from server, showing ' + filteredData.length + ' items');
+            console.log('[PAGE] Page ' + currentPage + ': showing items ' + ((currentPage - 1) * perPageVal + 1) + ' to ' + Math.min(currentPage * perPageVal, filteredData.length));
+
+            // Calculate pagination
+            totalPages = Math.ceil(filteredData.length / perPageVal) || 1;
+            if (currentPage > totalPages) currentPage = 1;
+
+            // Get current page data
+            const startIndex = (currentPage - 1) * perPageVal;
+            allData = filteredData.slice(startIndex, startIndex + perPageVal);
+
+            // Update stats
+            const totalRevenue = filteredData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+            const withLink = filteredData.filter(item => item.link_sp).length;
+            const topRevenue = filteredData.length > 0 ? filteredData[0].revenue : 0;
+
+            document.getElementById('totalProducts').textContent = filteredData.length.toLocaleString();
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('withLink').textContent = withLink.toLocaleString();
+            document.getElementById('topRevenue').textContent = formatCurrency(topRevenue);
+
+            // Render table and pagination
+            console.log('[RENDER] allData first 3 values:', allData.slice(0, 3).map(x => x.revenue));
+            renderTable(allData, startIndex);
+            renderPaginationClient();
+            document.getElementById('tableCount').textContent = filteredData.length + ' sản phẩm';
+        }
+
+        // Pagination dùng client-side data
+        function renderPaginationClient() {
+            let html = '<div class="pagination-info">Trang ' + currentPage + ' / ' + totalPages + ' (' + filteredData.length + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (currentPage > 1 ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage - 1) + ')" ' + (currentPage > 1 ? '' : 'disabled') + '>◀</button>';
+
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === currentPage ? ' active' : '') + '" onclick="goToPage(' + i + ')' + '">' + i + '</button>';
+            }
+
+            html += '<button class="page-btn" onclick="goToPage(' + (currentPage + 1) + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + totalPages + ')" ' + (currentPage < totalPages ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function renderPagination(pagination) {
+            let html = '<div class="pagination-info">Trang ' + pagination.page + ' / ' + pagination.total_pages + ' (' + pagination.total + ' sản phẩm)</div>';
+            html += '<div class="pagination-controls">';
+            html += '<button class="page-btn" onclick="goToPage(1)" ' + (pagination.has_prev ? '' : 'disabled') + '>⟪</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page - 1) + ')" ' + (pagination.has_prev ? '' : 'disabled') + '>◀</button>';
+
+            // Show page numbers
+            const startPage = Math.max(1, pagination.page - 2);
+            const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+            for (let i = startPage; i <= endPage; i++) {
+                html += '<button class="page-btn' + (i === pagination.page ? ' active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+            }
+
+            html += '<button class="page-btn" onclick="goToPage(' + (pagination.page + 1) + ')" ' + (pagination.has_next ? '' : 'disabled') + '>▶</button>';
+            html += '<button class="page-btn" onclick="goToPage(' + pagination.total_pages + ')" ' + (pagination.has_next ? '' : 'disabled') + '>⟫</button>';
+            html += '</div>';
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            applyFiltersAndSort();  // Client-side - instant!
+        }
+
+        function renderRevenueChart(data) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [{
+                        label: 'GMV(VNĐ)',
+                        data: data.map(d => d.revenue),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return ctx.raw.toLocaleString() + ' đ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                    if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderCategoryChart(data) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChart) categoryChart.destroy();
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'];
+            let chartData = data.slice(0, 8);
+            if (data.length > 8) {
+                const otherRevenue = data.slice(8).reduce((sum, d) => sum + d.revenue, 0);
+                chartData.push({ cluster: 'Khác', revenue: otherRevenue, count: data.slice(8).length });
+            }
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.map(d => d.cluster || 'Không xác định'),
+                    datasets: [{
+                        data: chartData.map(d => d.revenue),
+                        backgroundColor: colors.slice(0, chartData.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((ctx.raw / total) * 100).toFixed(1);
+                                    return ctx.label + ': ' + ctx.raw.toLocaleString() + ' đ (' + percent + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStats(result) {
+            const stats = result.stats;
+            const topRevenue = result.data.length > 0 ? result.data[0].revenue : 0;
+            document.getElementById('totalProducts').textContent = stats.total_products.toLocaleString();
+            document.getElementById('totalRevenue').textContent = formatCurrency(stats.total_revenue);
+            document.getElementById('withLink').textContent = stats.with_link.toLocaleString();
+            document.getElementById('topRevenue').textContent = formatCurrency(topRevenue);
+            document.getElementById('totalConfirmedRevenue').textContent = formatCurrency(stats.total_confirmed_revenue);
+        }
+
+        function formatCurrency(value) {
+            if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B đ';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M đ';
+            if (value >= 1000) return (value / 1000).toFixed(0) + 'K đ';
+            return value.toLocaleString() + ' đ';
+        }
+
+        function sortData(data, column, direction) {
+            return [...data].sort((a, b) => {
+                const valA = a[column] || 0;
+                const valB = b[column] || 0;
+                return direction === 'desc' ? valB - valA : valA - valB;
+            });
+        }
+
+        // Server-side sort function - gọi API để sort trên toàn bộ database
+        function toggleSort(column) {
+            console.log('[toggleSort] Called with column: ' + column);
+
+            // Update sort state
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+
+            console.log('[toggleSort] New sort: ' + currentSort.column + ' ' + currentSort.direction);
+
+            // Reset page to 1
+            currentPage = 1;
+
+            // Clear local cache to ensure fresh data from server
+            // Client-side sort - no cache clear needed
+
+            // Show loading and call server API with sort params (like refreshData)
+            document.getElementById('tableWrapper').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            applyFiltersAndSort(true); // Client-side sort - instant!
+            // Sync chart with table sort
+            if (['revenue', 'clicks', 'add_to_cart', 'orders'].includes(column)) {
+                // Update tab active state
+                document.querySelectorAll('.chart-tab').forEach(t => {
+                    t.classList.toggle('active', t.dataset.metric === column);
+                });
+                // Load chart with new metric
+                loadTopChart(column);
+                loadCategoryChart(column);
+            }
+        }
+
+        // Load sorted data from server (called by toggleSort)
+        async function loadSortedDataFromServer() {
+            console.log('[Server] Fetching sorted data from /api/all-data with sort params...');
+
+            let url = `/api/all-data?sort_by=${currentSort.column}&sort_dir=${currentSort.direction}`;
+
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.success) {
+                    fullData = result.data;
+                    dataLoaded = true;
+                    console.log('[Server] Loaded ' + fullData.length + ' products sorted by ' + currentSort.column + ' ' + currentSort.direction);
+
+                    // Update shop IDs
+                    if (result.shop_ids && result.shop_ids.length > 0) {
+                        shopIds = result.shop_ids;
+                        const datalist = document.getElementById('shopIdList');
+                        datalist.innerHTML = '';
+                        shopIds.forEach(id => {
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            datalist.appendChild(opt);
+                        });
+                    }
+
+                    document.getElementById('lastSync').textContent = result.last_sync || '14.01 Lan Ngọc & Diệp Lê';
+
+                    // Apply filters (no client-side sort needed since server already sorted)
+                    applyFiltersNoSort();
+                    showToast('Đã sắp xếp theo ' + currentSort.column + ' (' + currentSort.direction + ')');
+                }
+            } catch (error) {
+                console.error('[Server] Error:', error);
+                showToast('Lỗi khi tải dữ liệu!');
+                document.getElementById('tableWrapper').innerHTML = '<div class="loading">Lỗi tải dữ liệu</div>';
+            }
+        }
+
+        function renderTable(data, startIndex = 0) {
+            if (data.length === 0) {
+                document.getElementById('tableWrapper').innerHTML = '<div class="loading">Không có dữ liệu</div>';
+                return;
+            }
+            const revenueArrow = currentSort.column === 'revenue' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            const clicksArrow = currentSort.column === 'clicks' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            const atcArrow = currentSort.column === 'add_to_cart' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            const ordersArrow = currentSort.column === 'orders' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            const itemsSoldArrow = currentSort.column === 'items_sold' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            const nmvArrow = currentSort.column === 'confirmed_revenue' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
+            let html = '<table><thead><tr><th style="width:50px">#</th><th>Sản phẩm</th><th class="sortable" style="width:110px; cursor:pointer" data-sort="revenue">GMV' + revenueArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="clicks">Clicks' + clicksArrow + '</th><th class="sortable" style="width:45px; cursor:pointer" data-sort="add_to_cart">ATC' + atcArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="orders">Đơn hàng' + ordersArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="items_sold">Đã bán' + itemsSoldArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="confirmed_revenue">NMV' + nmvArrow + '</th><th style="width:70px">Link</th></tr></thead><tbody>';
+            data.forEach((item, index) => {
+                const rank = startIndex + index + 1;
+                let rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+                const name = escapeHtml(item.item_name) || 'N/A';
+                const revenue = (item.revenue !== null && item.revenue !== undefined) ? item.revenue.toLocaleString() + ' đ' : 'N/A';
+                const clicks = item.clicks || 0;
+                const addToCart = item.add_to_cart || 0;
+                const orders = item.orders || 0;
+                const itemsSold = item.items_sold || 0;
+                const nmv = item.confirmed_revenue || 0;
+                const shopId = item.shop_id || '-';
+                let linkHtml = '<span class="no-link-badge">Chưa có</span>';
+                if (item.link_sp) {
+                    linkHtml = '<div class="link-actions"><button class="icon-btn copy" onclick="copyLink(\'' + item.link_sp + '\', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a href="' + item.link_sp + '" target="_blank" class="icon-btn link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>';
+                }
+                html += '<tr><td><span class="rank-badge ' + rankClass + '">' + rank + '</span></td>';
+                html += '<td class="product-cell"><div class="product-name-wrapper"><div class="product-name">' + name + '</div><div class="product-id">' + item.item_id + '</div></div>';
+                html += '<div class="product-tooltip"><div class="tooltip-name">' + name + '</div></div></td>';
+                html += '<td class="revenue-cell">' + revenue + '</td><td class="clicks-cell">' + clicks.toLocaleString() + '</td><td class="atc-cell">' + addToCart.toLocaleString() + '</td><td class="orders-cell">' + orders + '</td><td class="items-sold-cell">' + itemsSold.toLocaleString() + '</td><td class="nmv-cell">' + (nmv > 0 ? nmv.toLocaleString() + ' đ' : '-') + '</td><td>' + linkHtml + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById('tableWrapper').innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyLink(link, btn) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link).then(() => {
+                    copySuccess(btn);
+                }).catch(() => {
+                    fallbackCopy(link, btn);
+                });
+            } else {
+                fallbackCopy(link, btn);
+            }
+        }
+
+        function fallbackCopy(text, btn) {
+            // iOS: show modal for manual copy
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                showCopyModal(text);
+                return;
+            }
+
+            // Other browsers: try execCommand
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            textArea.style.top = '0';
+            textArea.setAttribute('readonly', '');
+            document.body.appendChild(textArea);
+            textArea.select();
+            textArea.setSelectionRange(0, text.length);
+
+            try {
+                document.execCommand('copy');
+                copySuccess(btn);
+            } catch (err) {
+                showCopyModal(text);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showCopyModal(text) {
+            const modal = document.getElementById('copyModal');
+            const input = document.getElementById('copyModalInput');
+            input.value = text;
+            modal.classList.add('show');
+            setTimeout(() => {
+                input.select();
+                input.setSelectionRange(0, text.length);
+            }, 100);
+        }
+
+        function closeCopyModal(event) {
+            if (event && event.target !== document.getElementById('copyModal')) return;
+            document.getElementById('copyModal').classList.remove('show');
+        }
+
+        function tryCopyFromModal() {
+            const input = document.getElementById('copyModalInput');
+            input.select();
+            input.setSelectionRange(0, input.value.length);
+            try {
+                document.execCommand('copy');
+                showToast('Đã copy link!');
+                closeCopyModal();
+            } catch (err) {
+                showToast('Nhấn giữ và chọn "Copy"');
+            }
+        }
+
+        function copySuccess(btn) {
+            btn.classList.add('copied');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            showToast('Đã copy link!');
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            }, 2000);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function filterTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const linkFilter = document.getElementById('linkFilter').value;
+            let filtered = fullData.filter(item => {
+                const matchesSearch = (item.item_name && item.item_name.toLowerCase().includes(query)) ||
+                    (item.item_id && item.item_id.toLowerCase().includes(query));
+                let matchesLink = true;
+                if (linkFilter === 'with-link') matchesLink = !!item.link_sp;
+                else if (linkFilter === 'no-link') matchesLink = !item.link_sp;
+                return matchesSearch && matchesLink;
+            });
+            filtered = sortData(filtered, currentSort.column, currentSort.direction);
+            renderTable(filtered);
+            document.getElementById('tableCount').textContent = filtered.length + ' sản phẩm';
+        }
+
+        async function bulkCopyLinks() {
+            const count = parseInt(document.getElementById('bulkCopyCount').value);
+            showToast('Đang tải dữ liệu...');
+            try {
+                const shopId = document.getElementById('shopIdFilter').value;
+                let url = `/api/top-gmv?page=1&per_page=${count}`;
+                if (shopId) url += `&shop_id=${encodeURIComponent(shopId)}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.success) {
+                    const itemsWithLinks = result.data.filter(item => item.link_sp);
+                    if (itemsWithLinks.length === 0) { showToast('Không có link!'); return; }
+                    const links = itemsWithLinks.map(item => item.link_sp).join('\n');
+
+                    // iOS check
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    if (isIOS) {
+                        showCopyModal(links);
+                    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(links);
+                        showToast('Đã copy ' + itemsWithLinks.length + ' links!');
+                    } else {
+                        showCopyModal(links);
+                    }
+                }
+            } catch (error) {
+                showToast('Lỗi khi copy!');
+            }
+        }
+
+        async function copyNoLinkItems() {
+            const count = parseInt(document.getElementById('bulkCopyCount').value);
+            showToast('Đang tải dữ liệu...');
+            try {
+                const shopId = document.getElementById('shopIdFilter').value;
+                let url = `/api/top-gmv?page=1&per_page=${count}`;
+                if (shopId) url += `&shop_id=${encodeURIComponent(shopId)}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.success) {
+                    const itemsWithoutLinks = result.data.filter(item => !item.link_sp);
+                    if (itemsWithoutLinks.length === 0) { showToast('Tất cả đều có link!'); return; }
+                    const itemIds = itemsWithoutLinks.map(item => item.item_id).join('\n');
+
+                    // iOS check
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    if (isIOS) {
+                        showCopyModal(itemIds);
+                    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(itemIds);
+                        showToast('Đã copy ' + itemsWithoutLinks.length + ' item IDs!');
+                    } else {
+                        showCopyModal(itemIds);
+                    }
+                }
+            } catch (error) {
+                showToast('Lỗi khi copy!');
+            }
+        }
+        function filterTopGap() {
+            // Tính gap cho mỗi item và sort theo gap desc
+            const dataWithGap = fullData.map(item => ({
+                ...item,
+                gap: (item.revenue || 0) - (item.confirmed_revenue || 0)
+            }));
+
+            // Sort theo gap giảm dần và lấy top 10
+            dataWithGap.sort((a, b) => b.gap - a.gap);
+            const top10Gap = dataWithGap.slice(0, 10);
+
+            // Hiển thị trong bảng
+            filteredData = top10Gap;
+            currentPage = 1;
+            totalPages = 1;
+            allData = top10Gap;
+
+            renderTable(allData, 0);
+            renderPaginationClient();
+            document.getElementById('tableCount').textContent = '10 sản phẩm (Top Gap)';
+
+            // Update stats cho top 10 này
+            const totalRevenue = top10Gap.reduce((sum, item) => sum + (item.revenue || 0), 0);
+            const totalConfirmedRevenue = top10Gap.reduce((sum, item) => sum + (item.confirmed_revenue || 0), 0);
+            const withLink = top10Gap.filter(item => item.link_sp).length;
+            const topRevenue = top10Gap.length > 0 ? Math.max(...top10Gap.map(item => item.revenue || 0)) : 0;
+            const gapRevenue = totalRevenue - totalConfirmedRevenue;
+
+            document.getElementById('linkRatio').textContent = withLink.toLocaleString() + ' / ' + top10Gap.length.toLocaleString();
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalConfirmedRevenue').textContent = formatCurrency(totalConfirmedRevenue);
+            const gapPercent = totalRevenue > 0 ? ((gapRevenue / totalRevenue) * 100).toFixed(1) : 0;
+            document.getElementById('gapRevenue').textContent = formatCurrency(gapRevenue) + ` (${gapPercent}%)`;
+            document.getElementById('topRevenue').textContent = formatCurrency(topRevenue);
+
+            showToast('Đã lọc Top 10 Gap cao nhất!');
+        }
+
+        function refreshData() {
+            document.getElementById('tableWrapper').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            loadData(true);  // Force refresh from server
+        }
+
+        // Event delegation for sortable headers
+        document.getElementById('tableWrapper').addEventListener('click', function (e) {
+            console.log('[CLICK] Element clicked:', e.target.tagName, e.target.className);
+            const th = e.target.closest('th.sortable');
+            console.log('[CLICK] Closest th.sortable:', th);
+            if (th) {
+                const column = th.getAttribute('data-sort');
+                console.log('[CLICK] data-sort attribute:', column);
+                if (column) {
+                    console.log('[EVENT] Clicked sortable header: ' + column);
+                    toggleSort(column);
+                }
+            }
+        });
+
+        loadData();  // Initial load
+        loadSessions();  // Load session list for filter
+        setInterval(() => loadData(true), 1 * 60 * 1000);  // Auto-refresh every 5 min
+    </script>
+
+    <!-- Copy Modal for iOS -->
+    <div class="copy-modal-overlay" id="copyModal" onclick="closeCopyModal(event)">
+        <div class="copy-modal" onclick="event.stopPropagation()">
+            <h3>📋 Copy link sản phẩm</h3>
+            <textarea id="copyModalInput" readonly onclick="this.select()" rows="5"></textarea>
+            <div class="copy-modal-buttons">
+                <button class="copy-btn" onclick="tryCopyFromModal()">Copy</button>
+                <button class="close-btn" onclick="closeCopyModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

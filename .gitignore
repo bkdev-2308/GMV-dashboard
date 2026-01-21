@@ -1,0 +1,22 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Database (will be created fresh on Railway)
+*.db
+
+# Credentials (IMPORTANT: DO NOT UPLOAD)
+service-account-key.json
+
+# Output files
+out/
+
+# IDE
+.idea/
+.vscode/

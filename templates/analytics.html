@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Analytics - BeyondK Network</title>
+    <link rel="icon" type="image/x-icon" href="/static/logo.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-light: #eff6ff;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --border: #e2e8f0;
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 64px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 0;
+            position: fixed;
+            height: 100vh;
+            z-index: 50;
+        }
+
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .sidebar-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            width: 100%;
+            padding: 0 12px;
+        }
+
+        .nav-item {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-light);
+            color: var(--accent);
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 64px;
+            padding: 1.5rem 2rem;
+        }
+
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .search-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-primary:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-value.green {
+            color: var(--success);
+        }
+
+        .stat-value.blue {
+            color: var(--accent);
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .chart-header {
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        .item-info {
+            background: var(--accent-light);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .item-info.show {
+            display: block;
+        }
+
+        .item-name {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .item-id {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+        }
+
+        .table-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+        }
+
+        @media (max-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <img src="/static/logo.ico" alt="BeyondK">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin" class="nav-item" title="Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                </a>
+                <a href="/admin/analytics" class="nav-item active" title="Analytics">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                </a>
+                <a href="/admin/history" class="nav-item" title="History">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                </a>
+            </nav>
+            <a href="/admin/setting" class="nav-item" title="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+            </a>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header">
+                <h1>Item Analytics</h1>
+                <p>Phân tích chi tiết doanh thu và clicks theo từng phiên live</p>
+            </header>
+
+            <div class="search-section">
+                <div class="search-form">
+                    <div class="form-group">
+                        <label for="itemId">Nhập Item ID</label>
+                        <input type="text" id="itemId" placeholder="VD: 10158281345"
+                            onkeypress="if(event.key==='Enter')searchItem()">
+                    </div>
+                    <button class="btn btn-primary" onclick="searchItem()" id="searchBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Tra cứu
+                    </button>
+                </div>
+            </div>
+
+            <div id="results" style="display: none;">
+                <div class="item-info show" id="itemInfo">
+                    <div class="item-name" id="itemName">--</div>
+                    <div class="item-id">Item ID: <span id="itemIdDisplay">--</span></div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value green" id="totalRevenue">--</div>
+                        <div class="stat-label">Tổng doanh thu</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value blue" id="totalClicks">--</div>
+                        <div class="stat-label">Tổng clicks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="sessionCount">--</div>
+                        <div class="stat-label">Số phiên live</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgRevenue">--</div>
+                        <div class="stat-label">Doanh thu TB/phiên</div>
+                    </div>
+                </div>
+
+                <div class="charts-section">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Doanh thu theo phiên</h3>
+                        </div>
+                        <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Clicks theo phiên</h3>
+                        </div>
+                        <div class="chart-container"><canvas id="clicksChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-header">Chi tiết theo phiên</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Phiên</th>
+                                <th>File</th>
+                                <th>Doanh thu</th>
+                                <th>Clicks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessionTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="empty-state" id="emptyState">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <p>Nhập Item ID để xem phân tích chi tiết</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let revenueChart = null;
+        let clicksChart = null;
+
+        async function searchItem() {
+            const itemId = document.getElementById('itemId').value.trim();
+            if (!itemId) {
+                alert('Vui lòng nhập Item ID');
+                return;
+            }
+
+            document.getElementById('searchBtn').disabled = true;
+            document.getElementById('searchBtn').innerHTML = '<div class="spinner" style="width:16px;height:16px;border:2px solid white;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></div> Đang tìm...';
+
+            try {
+                const response = await fetch('/api/item-analytics/' + itemId);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    alert(result.error || 'Không tìm thấy Item ID');
+                    document.getElementById('results').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+            } catch (error) {
+                alert('Lỗi kết nối: ' + error.message);
+            } finally {
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('searchBtn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Tra cứu';
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+
+            document.getElementById('itemName').textContent = data.item_name || 'N/A';
+            document.getElementById('itemIdDisplay').textContent = data.item_id;
+
+            document.getElementById('totalRevenue').textContent = formatCurrency(data.total_revenue);
+            document.getElementById('totalClicks').textContent = data.total_clicks.toLocaleString();
+            document.getElementById('sessionCount').textContent = data.session_count;
+            document.getElementById('avgRevenue').textContent = formatCurrency(data.total_revenue / data.session_count);
+
+            renderCharts(data.sessions);
+            renderTable(data.sessions);
+        }
+
+        function formatCurrency(value) {
+            if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B đ';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M đ';
+            if (value >= 1000) return (value / 1000).toFixed(0) + 'K đ';
+            return value.toLocaleString() + ' đ';
+        }
+
+        function renderCharts(sessions) {
+            const labels = sessions.map(s => s.session);
+            const revenues = sessions.map(s => s.revenue);
+            const clicks = sessions.map(s => s.clicks);
+
+            const ctx1 = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            revenueChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Doanh thu',
+                        data: revenues,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { callback: v => v >= 1000000 ? (v / 1000000) + 'M' : v.toLocaleString() } }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('clicksChart').getContext('2d');
+            if (clicksChart) clicksChart.destroy();
+            clicksChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Clicks',
+                        data: clicks,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function renderTable(sessions) {
+            let html = '';
+            sessions.forEach(s => {
+                html += '<tr><td>' + s.session + '</td><td>' + s.file + '</td><td>' + s.revenue.toLocaleString() + ' đ</td><td>' + s.clicks + '</td></tr>';
+            });
+            document.getElementById('sessionTable').innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>
