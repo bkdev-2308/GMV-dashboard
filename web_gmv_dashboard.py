@@ -401,9 +401,11 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
     """
     Sync Deal List 2 vào bảng deal_list_2 riêng trong PostgreSQL.
     Tương tự sync_deallist_only nhưng cho deal list thứ 2.
+    Returns: (count, spreadsheet_title)
     """
     client = get_gspread_client()
     spreadsheet = client.open_by_url(spreadsheet_url)
+    spreadsheet_title = spreadsheet.title  # Lấy tên spreadsheet
     
     # Read Deal list
     deallist_sheet = spreadsheet.worksheet(deallist_sheet_name)
@@ -517,7 +519,7 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
     
     print(f"[DEALLIST2] Saved {len(deal_list_items)} items to deal_list_2 table")
     
-    return len(deal_list_items)
+    return len(deal_list_items), spreadsheet_title
 
 
 def get_session_deallist_mapping():
@@ -702,9 +704,6 @@ def sync_data_from_sheets(spreadsheet_url, rawdata_sheet_name, deallist_sheet_na
     # Find column names in raw data
     # Expected: DateTime, Item ID, Tên sản phẩm, Lượt click, Tỷ lệ click, Tổng đơn hàng, Các mặt hàng được bán, Doanh thu, Tỷ lệ click để đặt hàng, Thêm vào giỏ hàng
     
-    # Debug: Print raw headers to see exact column names
-    print(f"[SYNC DEBUG] Raw headers: {raw_headers}")
-    
     gmv_items = []
     
     for row in rawdata:
@@ -805,29 +804,12 @@ def sync_data_from_sheets(spreadsheet_url, rawdata_sheet_name, deallist_sheet_na
     # Clear old data
     cursor.execute('DELETE FROM gmv_data')
     
-    print(f"[SYNC DEBUG] Total raw rows: {len(gmv_items)}")
-    
-    # Debug: Check specific item 28235588815
-    debug_item_id = '28235588815'
-    debug_occurrences = [(i, item) for i, item in enumerate(gmv_items) if item['item_id'] == debug_item_id]
-    if debug_occurrences:
-        print(f"[SYNC DEBUG] Item {debug_item_id} found {len(debug_occurrences)} times:")
-        for idx, item in debug_occurrences:
-            print(f"  - Row {idx}: DateTime={item['datetime']}, Revenue={item['revenue']}")
-    
     # Keep LAST occurrence of each item_id (just overwrite as we iterate)
     item_latest = {}
     for item in gmv_items:
-        item_id = item['item_id']
-        # Always overwrite - last occurrence wins
-        item_latest[item_id] = item
+        item_latest[item['item_id']] = item
     
-    # Debug: Check what we kept for the specific item
-    if debug_item_id in item_latest:
-        kept = item_latest[debug_item_id]
-        print(f"[SYNC DEBUG] Item {debug_item_id} KEPT: DateTime={kept['datetime']}, Revenue={kept['revenue']}")
-    
-    print(f"[SYNC] Total unique items (last occurrence each): {len(item_latest)}")
+    print(f"[SYNC] Processing {len(item_latest)} unique items")
     
     # Insert
     for item in item_latest.values():
@@ -1418,6 +1400,14 @@ def api_refresh_deallist():
                 WHERE (is_archived IS NULL OR is_archived = FALSE)
             ''',(parsed_title,))
             updated_rows = cursor.rowcount
+            
+            # Cũng update session_title trong gmv_history cho History page
+            cursor.execute('''
+                UPDATE gmv_history 
+                SET session_title = %s 
+            ''', (parsed_title,))
+            history_updated = cursor.rowcount
+            
             conn.commit()
             conn.close()
             
@@ -1448,7 +1438,48 @@ def api_refresh_deallist2():
         return jsonify({'success': False, 'error': 'Chưa cấu hình Deal List 2 URL hoặc sheet'})
     
     try:
-        count = sync_deallist2_only(spreadsheet_url, deallist_sheet)
+        count, sheet_title = sync_deallist2_only(spreadsheet_url, deallist_sheet)
+        
+        # Parse sheet title để lấy tên ngắn gọn
+        from db_helpers import parse_sheet_title
+        parsed_title = parse_sheet_title(sheet_title)
+        
+        if parsed_title:
+            # Lấy danh sách session_id dùng Deal List 2
+            mapping = get_session_deallist_mapping()
+            sessions_using_dl2 = [sid for sid, dlid in mapping.items() if dlid == 2]
+            
+            updated_rows = 0
+            if sessions_using_dl2:
+                conn = get_db()
+                cursor = conn.cursor()
+                # Update session_title CHỈ cho các sessions dùng Deal List 2
+                cursor.execute('''
+                    UPDATE gmv_data 
+                    SET session_title = %s 
+                    WHERE session_id = ANY(%s)
+                      AND (is_archived IS NULL OR is_archived = FALSE)
+                ''', (parsed_title, sessions_using_dl2))
+                updated_rows = cursor.rowcount
+                
+                # Cũng update session_title trong gmv_history cho History page
+                cursor.execute('''
+                    UPDATE gmv_history 
+                    SET session_title = %s 
+                    WHERE session_id = ANY(%s)
+                ''', (parsed_title, sessions_using_dl2))
+                history_updated = cursor.rowcount
+                
+                conn.commit()
+                conn.close()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Đã cập nhật {count} items. Session title: {parsed_title} ({updated_rows} rows updated)',
+                'count': count,
+                'parsed_title': parsed_title
+            })
+        
         return jsonify({
             'success': True,
             'message': f'Đã cập nhật {count} items vào Deal List 2',

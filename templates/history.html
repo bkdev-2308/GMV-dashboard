@@ -138,6 +138,61 @@
             color: var(--text-secondary);
             margin-top: 0.25rem;
         }
+
+        /* Searchable Dropdown */
+        .searchable-select {
+            position: relative;
+            min-width: 350px;
+        }
+
+        .searchable-select input {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .searchable-select input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .dropdown-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 4px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .dropdown-list.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-tertiary);
+        }
     </style>
 </head>
 
@@ -193,9 +248,11 @@
                             </svg>
                             Phiên đã archive
                         </label>
-                        <select id="sessionFilter" onchange="onSessionChange()">
-                            <option value="">-- Chọn phiên --</option>
-                        </select>
+                        <div class="searchable-select">
+                            <input type="text" id="sessionSearch" placeholder="🔍 Gõ để tìm hoặc click chọn phiên..."
+                                onclick="toggleDropdown(true)" oninput="filterSessions()" autocomplete="off">
+                            <div id="sessionDropdown" class="dropdown-list"></div>
+                        </div>
                     </div>
 
                     <div class="filter-divider"></div>
@@ -262,30 +319,58 @@
 
     <script>
         let currentSessionId = null;
+        let allSessionsData = [];
 
         async function loadSessions() {
             try {
                 const resp = await fetch('/api/archived-sessions');
                 const data = await resp.json();
-
-                const select = document.getElementById('sessionFilter');
-                select.innerHTML = '<option value="">-- Chọn phiên --</option>';
-
                 if (data.success && data.sessions.length > 0) {
-                    data.sessions.forEach(s => {
-                        const opt = document.createElement('option');
-                        opt.value = s.session_id;
-                        opt.textContent = `${s.session_title} (${s.item_count} SP, ${s.timeslot_count} khung giờ)`;
-                        select.appendChild(opt);
-                    });
+                    allSessionsData = data.sessions;
+                    renderDropdownItems(allSessionsData);
                 }
             } catch (e) {
                 console.error('Error loading sessions:', e);
             }
         }
 
-        async function onSessionChange() {
-            const sessionId = document.getElementById('sessionFilter').value;
+        function renderDropdownItems(sessions) {
+            const dropdown = document.getElementById('sessionDropdown');
+            dropdown.innerHTML = sessions.map(s =>
+                `<div class="dropdown-item" data-id="${s.session_id}" onclick="selectSession('${s.session_id}', '${s.session_title.replace(/'/g, "\\'")} (${s.item_count} SP, ${s.timeslot_count} khung giờ)')">
+                    ${s.session_title} (${s.item_count} SP, ${s.timeslot_count} khung giờ)
+                </div>`
+            ).join('');
+        }
+
+        function toggleDropdown(show) {
+            const dropdown = document.getElementById('sessionDropdown');
+            if (show) {
+                dropdown.classList.add('show');
+                renderDropdownItems(allSessionsData);
+            } else {
+                dropdown.classList.remove('show');
+            }
+        }
+
+        function filterSessions() {
+            const term = document.getElementById('sessionSearch').value.toLowerCase().trim();
+            const filtered = term ? allSessionsData.filter(s => s.session_title.toLowerCase().includes(term)) : allSessionsData;
+            renderDropdownItems(filtered);
+            toggleDropdown(true);
+        }
+
+        function selectSession(sessionId, displayText) {
+            document.getElementById('sessionSearch').value = displayText;
+            toggleDropdown(false);
+            onSessionChange(sessionId);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.searchable-select')) toggleDropdown(false);
+        });
+
+        async function onSessionChange(sessionId) {
             const timeslotSelect = document.getElementById('timeslotFilter');
 
             if (!sessionId) {
