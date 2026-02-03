@@ -21,7 +21,7 @@ import re
 import csv
 import argparse
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import threading
 
@@ -79,9 +79,9 @@ SERVICE_ACCOUNT_KEY = os.path.join(os.path.dirname(__file__), "service-account-k
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "out")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# CSV Header mở rộng với 3 cột mới cho Confirmed data
+# CSV Header mở rộng với coverImage và Confirmed data
 CSV_HEADER_API = [
-    "DateTime", "Item ID", "Tên sản phẩm",
+    "DateTime", "Item ID", "Tên sản phẩm", "coverImage",
     "Lượt click trên sản phẩm", "Tỷ lệ click vào sản phẩm",
     "Tổng đơn hàng", "Các mặt hàng được bán", "Doanh thu",
     "Tỷ lệ click để đặt hàng", "Thêm vào giỏ hàng",
@@ -143,6 +143,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS gmv_data (
             item_id TEXT PRIMARY KEY,
             item_name TEXT,
+            cover_image TEXT,
             revenue INTEGER,
             shop_id TEXT,
             link_sp TEXT,
@@ -159,6 +160,12 @@ def init_db():
     # Add confirmed_revenue column if not exists
     try:
         cursor.execute('ALTER TABLE gmv_data ADD COLUMN confirmed_revenue INTEGER DEFAULT 0')
+    except:
+        pass  # Column already exists
+    
+    # Add cover_image column if not exists
+    try:
+        cursor.execute('ALTER TABLE gmv_data ADD COLUMN cover_image TEXT')
     except:
         pass  # Column already exists
     
@@ -235,12 +242,13 @@ def save_to_sqlite(rows):
             dt_str = str(row[0]) if row[0] else ''
             item_id = str(row[1]).strip() if row[1] else ''
             item_name = str(row[2]) if row[2] else ''
-            clicks = parse_int(row[3])
-            ctr = str(row[4]) if row[4] else ''
-            orders = parse_int(row[5])
-            items_sold = parse_int(row[6])
-            revenue = parse_int(row[7])
-            confirmed_revenue = parse_int(row[10]) if len(row) > 10 else 0
+            cover_image = str(row[3]) if len(row) > 3 and row[3] else ''
+            clicks = parse_int(row[4]) if len(row) > 4 else 0
+            ctr = str(row[5]) if len(row) > 5 and row[5] else ''
+            orders = parse_int(row[6]) if len(row) > 6 else 0
+            items_sold = parse_int(row[7]) if len(row) > 7 else 0
+            revenue = parse_int(row[8]) if len(row) > 8 else 0
+            confirmed_revenue = parse_int(row[11]) if len(row) > 11 else 0
             
             if not item_id:
                 continue
@@ -251,9 +259,9 @@ def save_to_sqlite(rows):
             
             cursor.execute('''
                 INSERT OR REPLACE INTO gmv_data 
-                (item_id, item_name, revenue, datetime, clicks, ctr, orders, items_sold, confirmed_revenue)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (item_id, item_name, revenue, dt_str, clicks, ctr, orders, items_sold, confirmed_revenue))
+                (item_id, item_name, cover_image, revenue, datetime, clicks, ctr, orders, items_sold, confirmed_revenue)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (item_id, item_name, cover_image, revenue, dt_str, clicks, ctr, orders, items_sold, confirmed_revenue))
             count += 1
             
         except Exception as e:
@@ -686,6 +694,11 @@ def run_gui_mode():
             
             # PostgreSQL variables
             self.postgres_enabled = False
+            self.last_archive_time = datetime.now()  # Initialize archive timer
+            
+            # Overview scraper variables
+            self.overview_running = False
+            self.last_overview_archive = None
             
             # Thêm UI elements cho Google Sheet
             self._add_gsheet_ui()
@@ -908,6 +921,163 @@ def run_gui_mode():
                 self.log(traceback.format_exc())
                 return False
         
+        async def fetch_overview_data(self, page, session_id):
+            """
+            Gọi API overview và parse metrics.
+            
+            Args:
+                page: Playwright page object
+                session_id: Session ID for the livestream
+            
+            Returns:
+                dict: 19 metrics hoặc None nếu lỗi
+            
+            Requirements: 1.1, 1.2, 7.1, 7.3
+            """
+            from db_helpers import parse_overview_metrics
+            import asyncio
+            
+            api_url = f"https://creator.shopee.vn/supply/api/lm/sellercenter/realtime/dashboard/overview?sessionId={session_id}"
+            
+            try:
+                self.log(f"📊 Fetching overview data from API...")
+                
+                # Use page.evaluate() to fetch with credentials (with 30s timeout)
+                try:
+                    response = await asyncio.wait_for(
+                        page.evaluate('''
+                            async (url) => {
+                                try {
+                                    const resp = await fetch(url, {
+                                        credentials: 'include',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                        }
+                                    });
+                                    return await resp.json();
+                                } catch(e) {
+                                    return { error: e.message };
+                                }
+                            }
+                        ''', api_url),
+                        timeout=30.0
+                    )
+                except asyncio.TimeoutError:
+                    self.log(f"⚠️ Overview API timeout (>30s) - skipping this cycle")
+                    return None
+                
+                # Check for errors
+                if not response:
+                    self.log("❌ No response from overview API")
+                    return None
+                
+                if "error" in response:
+                    self.log(f"❌ Overview API error: {response.get('error')}")
+                    return None
+                
+                # Parse metrics using helper function
+                try:
+                    metrics = parse_overview_metrics(response)
+                except Exception as parse_error:
+                    self.log(f"❌ Parse error: {parse_error}")
+                    self.log(f"Response body: {str(response)[:500]}...")  # Log first 500 chars for debugging
+                    return None
+                
+                if metrics:
+                    self.log(f"✅ Overview data fetched: GMV={metrics.get('gmv', 0)}, Views={metrics.get('views', 0)}")
+                    return metrics
+                else:
+                    self.log("⚠️ Failed to parse overview metrics from API response")
+                    self.log(f"Response body: {str(response)[:500]}...")  # Log first 500 chars for debugging
+                    return None
+                    
+            except Exception as e:
+                self.log(f"❌ Error fetching overview data: {e}")
+                import traceback
+                self.log(traceback.format_exc())
+                return None
+        
+        async def overview_scraper_loop(self, page, session_id, session_title):
+            """
+            Overview scraper loop - chạy độc lập với product scraper.
+            Scrape mỗi 3 phút, archive mỗi 60 phút.
+            
+            Args:
+                page: Playwright page object
+                session_id: Session ID for the livestream
+                session_title: Session title for the livestream
+            
+            Requirements: 1.1, 1.3, 3.1, 6.1, 6.2, 6.3, 6.4, 7.1, 7.2, 7.3, 7.4, 7.5
+            """
+            from db_helpers import save_overview_to_postgresql, archive_overview_data
+            from datetime import timedelta
+            
+            self.log(f"🚀 Starting overview scraper loop for session {session_id} ({session_title})...")
+            
+            # Initialize last archive time
+            if self.last_overview_archive is None:
+                self.last_overview_archive = datetime.now()
+            
+            while self.overview_running:
+                try:
+                    current_time = datetime.now().strftime('%H:%M:%S')
+                    
+                    # 1. Fetch overview data from API
+                    self.log(f"📊 [Overview] [{current_time}] Fetching data for session {session_id}...")
+                    metrics = await self.fetch_overview_data(page, session_id)
+                    
+                    if metrics and self.postgres_enabled:
+                        # 2. Save to PostgreSQL
+                        db_url = self.postgres_url_input.text().strip()
+                        success = save_overview_to_postgresql(
+                            metrics, 
+                            db_url, 
+                            session_id, 
+                            session_title, 
+                            log_func=self.log
+                        )
+                        
+                        if success:
+                            self.log(f"✅ [Overview] [{current_time}] Saved 1 record to PostgreSQL (Session: {session_id}, GMV: {metrics.get('gmv', 0):,})")
+                        else:
+                            self.log(f"⚠️ [Overview] [{current_time}] Failed to save to PostgreSQL (Session: {session_id})")
+                    elif not metrics:
+                        self.log(f"⚠️ [Overview] [{current_time}] No metrics fetched (Session: {session_id})")
+                    
+                    # 3. Check if need to archive (every 60 minutes)
+                    elapsed = datetime.now() - self.last_overview_archive
+                    if elapsed > timedelta(minutes=60):
+                        if self.postgres_enabled:
+                            self.log(f"📦 [Overview] [{current_time}] Archiving data (60 minutes elapsed, Session: {session_id})...")
+                            db_url = self.postgres_url_input.text().strip()
+                            archive_success = archive_overview_data(
+                                db_url, 
+                                session_id, 
+                                log_func=self.log
+                            )
+                            
+                            if archive_success:
+                                self.last_overview_archive = datetime.now()
+                                archive_time = self.last_overview_archive.strftime('%H:%M:%S')
+                                self.log(f"✅ [Overview] [{archive_time}] Archived successfully (Session: {session_id})")
+                            else:
+                                self.log(f"⚠️ [Overview] [{current_time}] Archive failed (Session: {session_id}), will retry next cycle")
+                    
+                    # 4. Wait 3 minutes (180 seconds)
+                    self.log(f"⏱️ [Overview] [{current_time}] Waiting 3 minutes until next fetch...")
+                    await asyncio.sleep(180)
+                    
+                except Exception as e:
+                    error_time = datetime.now().strftime('%H:%M:%S')
+                    self.log(f"❌ [Overview] [{error_time}] Scraper error (Session: {session_id}): {e}")
+                    import traceback
+                    self.log(traceback.format_exc())
+                    # Retry after 1 minute on error
+                    self.log(f"⏱️ [Overview] [{error_time}] Retrying in 1 minute...")
+                    await asyncio.sleep(60)
+            
+            self.log(f"🛑 Overview scraper loop stopped (Session: {session_id})")
+        
         def save_to_csv_and_db(self, rows):
             """Ghi CSV + SQLite song song (+ Google Sheet nếu enabled)"""
             if not rows:
@@ -980,10 +1150,20 @@ def run_gui_mode():
                             norm_rows, db_url, session_id, session_title, 
                             log_func=self.log
                         )
-                    else:
-                        # Fallback to old method if no session_id
-                        self.log(f"🐘 Đang ghi vào PostgreSQL (legacy mode)...")
-                        save_to_postgresql(norm_rows, db_url, log_func=self.log)
+                    
+                    # === 5. HOURLY ARCHIVE CHECK ===
+                    if self.postgres_enabled and session_id:
+                        elapsed = datetime.now() - self.last_archive_time
+                        elapsed_mins = int(elapsed.total_seconds() / 60)
+                        self.log(f"⏱️ Timer: {elapsed_mins} phút kể từ lần archive trước")
+                        if elapsed > timedelta(minutes=60):  # TODO: Đổi lại hours=1 sau khi test
+                            self.log(f"⏰ Đã qua {elapsed_mins} phút (> 60). Tiến hành archive data...")
+                            success = archive_session_data(db_url, session_id, log_func=self.log)
+                            if success:
+                                self.last_archive_time = datetime.now()
+                                self.log(f"✅ Archive hoàn tất. Reset timer.")
+                        else:
+                            self.log(f"⏳ Chưa đến 60 phút, còn {60 - elapsed_mins} phút nữa mới archive")
                 
                 self.log("✅ Hoàn thành ghi dữ liệu")
                 return final_path
@@ -1089,6 +1269,7 @@ def run_gui_mode():
                     try:
                         item_id = str(product.get("itemId", ""))
                         name = product.get("title", "")
+                        cover_image = product.get("coverImage", "")
                         clicks = str(product.get("productClicks", 0))
                         
                         ctr = product.get("ctr", "0%")
@@ -1127,7 +1308,7 @@ def run_gui_mode():
                         confirmed_items_sold = str(product.get("ComfirmedItemsold", product.get("confirmedItemSold", 0)))
                         
                         results.append([
-                            dt_str, item_id, name,
+                            dt_str, item_id, name, cover_image,
                             clicks, ctr, total_orders, items_sold,
                             revenue, cto_rate, add_to_cart,
                             nmv, confirmed_orders, confirmed_items_sold,
@@ -1275,24 +1456,30 @@ def run_gui_mode():
             except Exception as e:
                 self.log(f"⚠️ Lỗi fetch session info: {e}")
             
-            # Override session_title with Google Sheet name if available
-            try:
-                spreadsheet_url = get_config('spreadsheet_url')
-                if spreadsheet_url:
-                    from db_helpers import parse_sheet_title, get_gspread_client
-                    client = get_gspread_client()
-                    if client:
-                        spreadsheet = client.open_by_url(spreadsheet_url)
-                        sheet_title = spreadsheet.title
-                        parsed_title = parse_sheet_title(sheet_title)
-                        if parsed_title:
-                            self.log(f"📋 Sheet Title: {sheet_title}")
-                            self.log(f"✨ Parsed Title: {parsed_title}")
-                            session_title = parsed_title
-            except Exception as e:
-                self.log(f"⚠️ Không lấy được sheet title: {e}")
+            # --- LOGIC XÁC ĐỊNH SESSION TITLE (Updated) ---
+            # Yêu cầu mới: 
+            # 1. Mặc định là "Session {session_id}"
+            # 2. KHÔNG tự lấy từ API hay Sheet nữa (tránh sai tên)
+            # 3. Nếu trong DB đã có tên "xịn" (do Admin map/đặt), thì giữ nguyên.
             
-            self.current_session_title = session_title or f"Session {session_id}"
+            final_session_title = f"Session {session_id}"
+            
+            # Check DB for existing custom title
+            if self.postgres_enabled:
+                try:
+                    from db_helpers import get_session_title_by_id
+                    db_url = self.postgres_url_input.text().strip()
+                    existing_title = get_session_title_by_id(db_url, session_id, log_func=self.log)
+                    
+                    # Nếu DB có title và không phải là "Session ...", thì đó là tên chuẩn -> Dùng nó
+                    if existing_title and not existing_title.startswith("Session "):
+                        self.log(f"🔄 Found existing custom title in DB: {existing_title}")
+                        final_session_title = existing_title
+                except Exception as e:
+                    self.log(f"⚠️ Error checking existing title: {e}")
+            
+            self.current_session_title = final_session_title
+
             
             # Initialize multi-session schema
             if self.postgres_enabled:
@@ -1302,6 +1489,13 @@ def run_gui_mode():
             # Archive tracking
             last_archive_time = datetime.now()
             ARCHIVE_INTERVAL_MINS = 60  # Archive every 60 minutes
+
+            # Start overview scraper thread
+            self.overview_running = True
+            overview_task = asyncio.create_task(
+                self.overview_scraper_loop(dashboard_page, session_id, final_session_title)
+            )
+            self.log("🚀 Overview scraper thread started")
 
             # Vòng scrape sử dụng API
             self.is_running = True
@@ -1313,21 +1507,11 @@ def run_gui_mode():
                         data = await extract_data_via_api(self, dashboard_page, session_id)
                         
                         if data:
-                            saved = self.save_to_csv_and_db(data)
-                            if saved:
-                                self.log(f"✅ Hoàn thành ghi dữ liệu")
+                            self.save_to_csv_and_db(data)
                         else:
                             self.log("⚠️ Không có dữ liệu để ghi")
                         
-                        # Check if need to archive (after 60 minutes)
-                        elapsed_since_archive = (datetime.now() - last_archive_time).total_seconds() / 60
-                        if elapsed_since_archive >= ARCHIVE_INTERVAL_MINS:
-                            self.log(f"📦 Đã đủ {ARCHIVE_INTERVAL_MINS} phút, bắt đầu archive...")
-                            if self.postgres_enabled:
-                                db_url = self.postgres_url_input.text().strip()
-                                archive_session_data(db_url, session_id, log_func=self.log)
-                            last_archive_time = datetime.now()
-                            self.log(f"✅ Archive xong, reset timer")
+                        # (Archive logic removed here as it is already handled in save_to_csv_and_db)
 
                         # Chờ tới mốc 5 phút
                         target_secs = 5 * 60
@@ -1345,6 +1529,24 @@ def run_gui_mode():
                         self.log(traceback.format_exc())
                         await asyncio.sleep(2)
             finally:
+                # Stop overview scraper
+                self.overview_running = False
+                self.log("🛑 Stopping overview scraper...")
+                
+                # Wait for overview task to complete (with timeout)
+                try:
+                    await asyncio.wait_for(overview_task, timeout=5.0)
+                    self.log("✅ Overview scraper stopped cleanly")
+                except asyncio.TimeoutError:
+                    self.log("⚠️ Overview scraper did not stop within timeout, cancelling...")
+                    overview_task.cancel()
+                    try:
+                        await overview_task
+                    except asyncio.CancelledError:
+                        self.log("✅ Overview scraper cancelled")
+                except Exception as e:
+                    self.log(f"⚠️ Error stopping overview scraper: {e}")
+                
                 self.log("Đóng trình duyệt...")
                 await context.close()
                 await browser.close()
@@ -1894,6 +2096,95 @@ def create_app():
             'session_count': len(sessions),
             'sessions': sessions
         })
+    
+    # ============== Overview Metrics API Routes ==============
+    
+    @app.route('/api/overview/live')
+    @admin_required
+    def api_overview_live():
+        """
+        Get real-time overview metrics for a session.
+        
+        Query params:
+            session_id: Session ID (required)
+        
+        Returns:
+            {
+                'success': True,
+                'data': {metrics dict},
+                'session_id': '...',
+                'session_title': '...',
+                'scraped_at': '...'
+            }
+        """
+        from db_helpers import get_overview_live
+        
+        session_id = request.args.get('session_id')
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Missing session_id'}), 400
+        
+        db_url = os.environ.get('DATABASE_URL', '')
+        if not db_url:
+            return jsonify({'success': False, 'error': 'Database not configured'}), 500
+        
+        data = get_overview_live(db_url, session_id)
+        
+        if data:
+            return jsonify({'success': True, 'data': data})
+        else:
+            return jsonify({'success': False, 'error': 'No data found'}), 404
+    
+    @app.route('/api/overview/history')
+    @admin_required
+    def api_overview_history():
+        """
+        Get historical overview metrics for a session.
+        
+        Query params:
+            session_id: Session ID (required)
+            limit: Number of records (default: 10)
+        
+        Returns:
+            {
+                'success': True,
+                'data': [list of metrics snapshots],
+                'count': N
+            }
+        """
+        from db_helpers import get_overview_history
+        
+        session_id = request.args.get('session_id')
+        limit = request.args.get('limit', 10, type=int)
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Missing session_id'}), 400
+        
+        db_url = os.environ.get('DATABASE_URL', '')
+        data = get_overview_history(db_url, session_id, limit)
+        
+        return jsonify({'success': True, 'data': data, 'count': len(data)})
+    
+    @app.route('/api/overview/sessions')
+    @admin_required
+    def api_overview_sessions():
+        """
+        Get list of sessions with overview data.
+        
+        Returns:
+            {
+                'success': True,
+                'sessions': [
+                    {'session_id': '...', 'session_title': '...', 'last_scraped': '...'},
+                    ...
+                ]
+            }
+        """
+        from db_helpers import get_overview_sessions
+        
+        db_url = os.environ.get('DATABASE_URL', '')
+        sessions = get_overview_sessions(db_url)
+        
+        return jsonify({'success': True, 'sessions': sessions})
     
     # Return app for gunicorn
     return app
