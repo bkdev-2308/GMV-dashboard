@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lịch sử Phiên - BeyondK</title>
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/dashboard-all.css">
     <link rel="stylesheet" href="/static/css/dashboard-all.css">
     <style>
         .history-container {
@@ -193,14 +195,93 @@
         .dropdown-item:hover {
             background: var(--bg-tertiary);
         }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .history-container {
+                padding: 1rem;
+            }
+
+            .session-filter-card {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .searchable-select {
+                min-width: 100%;
+            }
+
+            .filter-group select {
+                min-width: 100%;
+            }
+
+            .filter-divider {
+                display: none;
+            }
+
+            .stats-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .stats-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .data-table {
+                font-size: 0.75rem;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.5rem 0.5rem;
+            }
+        }
     </style>
 </head>
+<script>
+    function toggleMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('show');
+    }
+
+    function closeMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('show');
+    }
+</script>
 
 <body>
+    <!-- Mobile Header -->
+    <div class="mobile-header" id="mobileHeader">
+        <button class="hamburger-btn" onclick="toggleMobileMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
+        <span class="mobile-header-title">BeyondK Dashboard</span>
+    </div>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
     <div class="app-container">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
-                <img src="/static/logo.ico" alt="BeyondK">
+                <img src="/static/BK_logo.ico" alt="BeyondK">
                 <span class="sidebar-logo-text">BeyondK</span>
             </div>
             <nav class="sidebar-nav">
@@ -219,6 +300,7 @@
                         <line x1="12" y1="20" x2="12" y2="4" />
                         <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
+                    <span class="nav-text">Analytics</span>
                 </a>
                 <a href="/admin/history" class="nav-item active" title="Lịch sử">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -347,7 +429,10 @@
             const dropdown = document.getElementById('sessionDropdown');
             if (show) {
                 dropdown.classList.add('show');
-                renderDropdownItems(allSessionsData);
+                // Only render all items if dropdown is empty
+                if (dropdown.innerHTML.trim() === '') {
+                    renderDropdownItems(allSessionsData);
+                }
             } else {
                 dropdown.classList.remove('show');
             }
@@ -357,7 +442,8 @@
             const term = document.getElementById('sessionSearch').value.toLowerCase().trim();
             const filtered = term ? allSessionsData.filter(s => s.session_title.toLowerCase().includes(term)) : allSessionsData;
             renderDropdownItems(filtered);
-            toggleDropdown(true);
+            // Show dropdown directly without resetting
+            document.getElementById('sessionDropdown').classList.add('show');
         }
 
         function selectSession(sessionId, displayText) {
@@ -480,6 +566,8 @@
         // Init
         loadSessions();
     </script>
+
 </body>
+
 
 </html>

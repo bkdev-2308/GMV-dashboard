@@ -1,0 +1,395 @@
+/* Mobile Responsive CSS for Tet Voucher 2026 - Android/iOS */
+
+/* Extra small devices (iPhone SE, small Android < 380px) */
+@media (max-width: 380px) {
+    h1 {
+        font-size: 22px !important;
+    }
+
+    .voucher .big {
+        font-size: 24px !important;
+    }
+
+    .bnum {
+        font-size: 24px !important;
+    }
+
+    .btn {
+        font-size: 13px !important;
+        padding: 12px 14px !important;
+    }
+
+    .hero-card {
+        padding: 16px !important;
+    }
+
+    .badge {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+}
+
+/* Mobile devices (< 600px) */
+@media (max-width: 600px) {
+    .navlinks {
+        display: none !important;
+    }
+
+    .container {
+        width: calc(100% - 28px) !important;
+    }
+
+    .nav {
+        padding: 10px 0 !important;
+    }
+
+    .brand img {
+        height: 50px !important;
+        width: 50px !important;
+    }
+
+    /* Touch-friendly buttons (min 48px height for iOS) */
+    .btn {
+        padding: 14px 18px !important;
+        border-radius: 12px !important;
+        font-size: 14px !important;
+        min-height: 48px !important;
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    /* Button trong header - kích thước cố định 115x35 - OVERRIDE */
+    header .nav-cta .btn,
+    .nav .nav-cta .btn {
+        width: 115px !important;
+        height: 35px !important;
+        max-width: 115px !important;
+        min-height: 35px !important;
+        max-height: 35px !important;
+        padding: 0 8px !important;
+        font-size: 9px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+
+    header .nav-cta .btn.primary,
+    .nav .nav-cta .btn.primary {
+        width: 115px !important;
+        height: 35px !important;
+        max-width: 115px !important;
+        min-height: 35px !important;
+        max-height: 35px !important;
+        padding: 0 8px !important;
+        font-size: 9px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+
+    header .nav-cta .btn .icon,
+    .nav .nav-cta .btn .icon {
+        font-size: 9px !important;
+    }
+
+    .hero {
+        padding: 30px 0 20px !important;
+    }
+
+    .hero-card {
+        padding: 20px !important;
+    }
+
+    .hero-card::after {
+        font-size: 24px !important;
+        top: 10px !important;
+        right: 15px !important;
+    }
+
+    .badge {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+    }
+
+    h1 {
+        font-size: 24px !important;
+        margin: 12px 0 10px !important;
+        line-height: 1.2 !important;
+    }
+
+    .sub {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+    }
+
+    .hero-cta {
+        flex-direction: column !important;
+        gap: 10px !important;
+        margin-top: 18px !important;
+    }
+
+    .aside {
+        min-height: auto !important;
+    }
+
+    .voucher {
+        padding: 20px !important;
+    }
+
+    .voucher .tag {
+        font-size: 13px !important;
+    }
+
+    .voucher .big {
+        font-size: 26px !important;
+        margin: 4px 0 !important;
+    }
+
+    .voucher .meta {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .pill {
+        padding: 12px 14px !important;
+    }
+
+    .lantern {
+        font-size: 45px !important;
+        right: 10px !important;
+        bottom: 10px !important;
+    }
+
+    section {
+        padding: 20px 0 !important;
+    }
+
+    .section-title {
+        font-size: 18px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .grid {
+        gap: 12px !important;
+    }
+
+    .card {
+        grid-column: span 12 !important;
+        padding: 16px !important;
+    }
+
+    .note {
+        padding: 16px !important;
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 10px !important;
+        align-items: center !important;
+    }
+
+    .note::before {
+        margin: 0 auto !important;
+    }
+
+    .note div {
+        text-align: center !important;
+    }
+
+    .benefits {
+        gap: 12px !important;
+    }
+
+    .bitem {
+        padding: 18px !important;
+    }
+
+    .bnum {
+        font-size: 28px !important;
+    }
+
+    .steps {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    .step {
+        padding: 18px !important;
+    }
+
+    .cta {
+        padding: 20px !important;
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 16px !important;
+    }
+
+    .cta::before {
+        display: none !important;
+    }
+
+    .cta h2 {
+        font-size: 18px !important;
+    }
+
+    .cta>div:last-child {
+        width: 100% !important;
+        flex-direction: column !important;
+    }
+
+    .cta-content {
+        text-align: center !important;
+    }
+
+    .footline {
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 8px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* iOS Safe Area Support (notch, home indicator) */
+@supports (padding-top: env(safe-area-inset-top)) {
+    header {
+        padding-top: env(safe-area-inset-top);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+
+    footer {
+        padding-bottom: calc(30px + env(safe-area-inset-bottom));
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+
+    .container {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+}
+
+/* Touch optimization - disable hover effects on touch devices */
+@media (hover: none) and (pointer: coarse) {
+
+    .btn:hover,
+    .card:hover,
+    .bitem:hover,
+    .step:hover,
+    .pill:hover,
+    .navlinks a:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Active state for touch feedback */
+    .btn:active {
+        transform: scale(0.98) !important;
+        opacity: 0.9 !important;
+    }
+
+    .card:active,
+    .bitem:active,
+    .step:active,
+    .pill:active {
+        transform: scale(0.99) !important;
+        opacity: 0.95 !important;
+    }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .hero {
+        padding: 20px 0 15px !important;
+    }
+
+    .hero-wrap {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 16px !important;
+    }
+
+    .aside {
+        min-height: 200px !important;
+    }
+
+    .lantern {
+        font-size: 35px !important;
+    }
+
+    body::before {
+        display: none !important;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .btn.primary {
+        border: 2px solid #000 !important;
+    }
+
+    .card,
+    .bitem,
+    .step,
+    .pill {
+        border-width: 2px !important;
+    }
+}
+
+/* Print styles */
+@media print {
+
+    body::before,
+    body::after,
+    .tet-deco,
+    .lantern {
+        display: none !important;
+    }
+
+    .btn {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+}
+
+/* ============================================
+   FORCE BUTTON SIZE - 115x35 (Override tất cả)
+   ============================================ */
+@media (max-width: 600px) {
+
+    header .nav-cta .btn,
+    header .nav-cta a.btn,
+    .nav .nav-cta .btn,
+    .nav .nav-cta a.btn,
+    header .nav-cta .btn.primary,
+    header .nav-cta a.btn.primary,
+    .nav .nav-cta .btn.primary,
+    .nav .nav-cta a.btn.primary {
+        width: 160px !important;
+        height: 30px !important;
+        min-width: 160px !important;
+        max-width: 160px !important;
+        min-height: 30px !important;
+        max-height: 30px !important;
+        padding: 0 6px !important;
+        font-size: 12px !important;
+        line-height: 1.2 !important;
+        box-sizing: border-box !important;
+    }
+}

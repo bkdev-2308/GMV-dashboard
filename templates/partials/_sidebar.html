@@ -4,7 +4,7 @@
 
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo" onclick="toggleSidebar()">
-        <img src="/static/logo.ico" alt="BeyondK">
+        <img src="/static/BK_logo.ico" alt="BeyondK">
         <span class="sidebar-logo-text">BeyondK Network</span>
     </div>
     <nav class="sidebar-nav">
@@ -34,6 +34,7 @@
             <span class="nav-text">Reports</span>
         </a>
     </nav>
+    {% if session.get('user') and session.get('user').get('role') == 'bod' %}
     <a href="/admin/setting" class="nav-item {{ 'active' if active_page == 'settings' else '' }}" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3" />
@@ -42,4 +43,5 @@
         </svg>
         <span class="nav-text">Settings</span>
     </a>
+    {% endif %}
 </aside>

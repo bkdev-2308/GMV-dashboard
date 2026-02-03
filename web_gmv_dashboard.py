@@ -16,10 +16,19 @@ import gspread
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
+# Google OAuth imports
+try:
+    from authlib.integrations.flask_client import OAuth
+    OAUTH_AVAILABLE = True
+except ImportError:
+    OAUTH_AVAILABLE = False
+    print("[WARNING] Authlib not installed. Google OAuth disabled.")
+
 # Multi-session functions from db_helpers
 try:
     from db_helpers import (
-        get_active_sessions, get_history_timeslots, get_history_data
+        get_active_sessions, get_history_timeslots, get_history_data,
+        cleanup_old_sessions_auto
     )
 except ImportError:
     def get_active_sessions(*args, **kwargs):
@@ -28,15 +37,40 @@ except ImportError:
         return []
     def get_history_data(*args, **kwargs):
         return []
+    def cleanup_old_sessions_auto(*args, **kwargs):
+        return False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Fix for HTTPS behind reverse proxy (Railway, Heroku, etc.)
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Database URL (PostgreSQL)
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 # Admin password from environment
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+
+# Setup OAuth if available
+oauth = None
+if OAUTH_AVAILABLE and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    oauth = OAuth(app)
+    oauth.register(
+        name='google',
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'}
+    )
+    print("[OAUTH] Google OAuth configured successfully")
+else:
+    print("[OAUTH] Google OAuth not configured (missing credentials)")
 
 # Google Sheets scope
 SCOPES = [
@@ -51,6 +85,12 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not os.environ.get('FLASK_DE
     scheduler = BackgroundScheduler()
     scheduler.start()
     print("[SCHEDULER] Background scheduler started")
+    
+    # Auto-cleanup old sessions on startup (keep only 2 newest)
+    try:
+        cleanup_old_sessions_auto(DATABASE_URL, log_func=print)
+    except Exception as e:
+        print(f"[CLEANUP] Startup cleanup failed: {e}")
 
 # Auto-sync state (in-memory)
 auto_sync_state = {
@@ -73,6 +113,13 @@ data_cache = {
     'last_update': 0,
     'shop_ids': None,
     'stats': None
+}
+
+# Overview cache
+overview_cache = {
+    'sessions': None,
+    'sessions_last_update': 0,
+    'live_data': {},  # {session_id: {data, last_update}}
 }
 
 def get_cached_data():
@@ -98,6 +145,37 @@ def invalidate_cache():
     data_cache['shop_ids'] = None
     data_cache['stats'] = None
     print("[CACHE] Cache invalidated")
+
+def get_cached_overview_sessions():
+    """Get overview sessions from cache"""
+    if overview_cache['sessions'] is None:
+        return None
+    if time.time() - overview_cache['sessions_last_update'] > CACHE_TTL:
+        return None
+    return overview_cache['sessions']
+
+def set_cached_overview_sessions(sessions):
+    """Cache overview sessions"""
+    overview_cache['sessions'] = sessions
+    overview_cache['sessions_last_update'] = time.time()
+    print(f"[CACHE] Cached {len(sessions)} overview sessions")
+
+def get_cached_overview_live(session_id):
+    """Get overview live data from cache for a session"""
+    if session_id not in overview_cache['live_data']:
+        return None
+    cached = overview_cache['live_data'][session_id]
+    if time.time() - cached['last_update'] > CACHE_TTL:
+        return None
+    return cached['data']
+
+def set_cached_overview_live(session_id, data):
+    """Cache overview live data for a session"""
+    overview_cache['live_data'][session_id] = {
+        'data': data,
+        'last_update': time.time()
+    }
+    print(f"[CACHE] Cached overview live data for session {session_id}")
 
 # ============== Helper Functions ==============
 
@@ -141,7 +219,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS gmv_data (
             item_id TEXT PRIMARY KEY,
             item_name TEXT,
-            revenue INTEGER,
+            revenue BIGINT,
             shop_id TEXT,
             link_sp TEXT,
             datetime TEXT,
@@ -151,13 +229,32 @@ def init_db():
             items_sold INTEGER,
             cluster TEXT,
             add_to_cart INTEGER,
-            confirmed_revenue INTEGER
+            confirmed_revenue BIGINT
         )
     ''')
     
+    # Migrate existing revenue columns from INTEGER to BIGINT if needed
+    try:
+        cursor.execute('''
+            ALTER TABLE gmv_data 
+            ALTER COLUMN revenue TYPE BIGINT
+        ''')
+        print("[DB] Migrated gmv_data.revenue to BIGINT")
+    except Exception as e:
+        print(f"[DB] Revenue column migration note: {e}")
+    
+    try:
+        cursor.execute('''
+            ALTER TABLE gmv_data 
+            ALTER COLUMN confirmed_revenue TYPE BIGINT
+        ''')
+        print("[DB] Migrated gmv_data.confirmed_revenue to BIGINT")
+    except Exception as e:
+        print(f"[DB] Confirmed revenue column migration note: {e}")
+    
     # Add new columns if not exists (for existing databases)
     cursor.execute('''
-        ALTER TABLE gmv_data ADD COLUMN IF NOT EXISTS confirmed_revenue INTEGER DEFAULT 0
+        ALTER TABLE gmv_data ADD COLUMN IF NOT EXISTS confirmed_revenue BIGINT DEFAULT 0
     ''')
     
     # Raw session data table (for monthly analytics)
@@ -166,12 +263,64 @@ def init_db():
             id SERIAL PRIMARY KEY,
             item_name TEXT,
             item_id TEXT,
-            revenue INTEGER,
+            revenue BIGINT,
             clicks INTEGER,
             file_name TEXT,
-            session_name TEXT
+            session_name TEXT,
+            total_orders INTEGER DEFAULT 0,
+            items_sold INTEGER DEFAULT 0,
+            add_to_cart INTEGER DEFAULT 0,
+            click_to_product_rate TEXT DEFAULT '',
+            click_to_order_rate TEXT DEFAULT ''
         )
     ''')
+    
+    # Migrate existing revenue column from INTEGER to BIGINT if needed
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data 
+            ALTER COLUMN revenue TYPE BIGINT
+        ''')
+        print("[DB] Migrated raw_session_data.revenue to BIGINT")
+    except Exception as e:
+        print(f"[DB] Revenue column migration note: {e}")
+    
+    # Add new columns to existing raw_session_data table if not exists
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data ADD COLUMN IF NOT EXISTS total_orders INTEGER DEFAULT 0
+        ''')
+    except Exception:
+        pass
+    
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data ADD COLUMN IF NOT EXISTS items_sold INTEGER DEFAULT 0
+        ''')
+    except Exception:
+        pass
+    
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data ADD COLUMN IF NOT EXISTS add_to_cart INTEGER DEFAULT 0
+        ''')
+    except Exception:
+        pass
+    
+    # Add click rate columns to existing raw_session_data table if not exists
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data ADD COLUMN IF NOT EXISTS click_to_product_rate TEXT DEFAULT ''
+        ''')
+    except Exception:
+        pass
+    
+    try:
+        cursor.execute('''
+            ALTER TABLE raw_session_data ADD COLUMN IF NOT EXISTS click_to_order_rate TEXT DEFAULT ''
+        ''')
+    except Exception:
+        pass
     
     # Add add_to_cart column to existing gmv_data table if not exists
     try:
@@ -193,8 +342,22 @@ def init_db():
     except Exception as e:
         print(f"[DB] Index creation note: {e}")
     
+    # Users table for OAuth authentication
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            name VARCHAR(255),
+            picture VARCHAR(500),
+            role VARCHAR(20) DEFAULT 'staff',
+            created_at TIMESTAMP DEFAULT NOW(),
+            last_login TIMESTAMP
+        )
+    ''')
+    
     conn.commit()
     conn.close()
+    print("[DB] Database tables initialized")
 
 def get_config(key):
     """Get config value by key"""
@@ -295,6 +458,7 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
     item_id_col = None
     shop_id_col = None
     cluster_col = None
+    brand_col = None  # New: column for brand name (Nhãn hàng)
     
     if deallist_data:
         first_row_keys = list(deallist_data[0].keys())
@@ -307,6 +471,9 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
                 shop_id_col = key
             if 'cluster' in key_lower:
                 cluster_col = key
+            # Look for brand column: "Nhãn hàng" only (exact match to avoid matching price columns)
+            if key_lower == 'nhãnhàng' or key_lower == 'nhanhang' or key.strip().lower() == 'nhãn hàng':
+                brand_col = key
         # Second pass: fallback to 'itemid' if finalitemid not found
         if not item_id_col:
             for key in first_row_keys:
@@ -316,7 +483,7 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
                     break
     
     # Debug log: which columns were found
-    print(f"[DEALLIST DEBUG] item_id_col='{item_id_col}', shop_id_col='{shop_id_col}', cluster_col='{cluster_col}'")
+    print(f"[DEALLIST DEBUG] item_id_col='{item_id_col}', shop_id_col='{shop_id_col}', cluster_col='{cluster_col}', brand_col='{brand_col}'")
     
     if not item_id_col or not shop_id_col:
         print(f"[DEALLIST DEBUG] Headers found: {first_row_keys if deallist_data else 'No data'}")
@@ -329,14 +496,23 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
         shop_id_raw = str(row.get(shop_id_col, '')).strip()
         cluster = str(row.get(cluster_col, '')).strip() if cluster_col else ''
         
+        # Get brand_name from dedicated column if exists, otherwise from shop_id format "brand+shopid"
+        brand_name = ''
+        if brand_col:
+            brand_name = str(row.get(brand_col, '')).strip()
+        
+        # Extract shop_id and fallback brand_name from format "brand+shopid"
         if '+' in shop_id_raw:
-            shop_id = shop_id_raw.split('+')[-1]
+            parts = shop_id_raw.split('+')
+            if not brand_name:  # Only use this if no dedicated brand column
+                brand_name = parts[0].strip()  # Brand name before +
+            shop_id = parts[-1]  # Shop ID after +
         else:
             shop_id = shop_id_raw
         shop_id = ''.join(c for c in shop_id if c.isdigit())
         
         if item_id and shop_id:
-            deal_list_items.append((item_id, shop_id, cluster))
+            deal_list_items.append((item_id, shop_id, cluster, brand_name))
     
     print(f"[DEALLIST] Preparing to save {len(deal_list_items)} items to deal_list table")
     
@@ -350,13 +526,24 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Create deal_list table if not exists
+    # Create deal_list table if not exists (with brand_name column)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS deal_list (
             item_id TEXT PRIMARY KEY,
             shop_id TEXT,
-            cluster TEXT
+            cluster TEXT,
+            brand_name TEXT
         )
+    ''')
+    
+    # Add brand_name column if not exists (for existing tables)
+    cursor.execute('''
+        DO $$ 
+        BEGIN 
+            ALTER TABLE deal_list ADD COLUMN IF NOT EXISTS brand_name TEXT;
+        EXCEPTION WHEN duplicate_column THEN 
+            NULL;
+        END $$;
     ''')
     
     # Clear old data
@@ -365,11 +552,12 @@ def sync_deallist_only(spreadsheet_url, deallist_sheet_name):
     # Batch insert using executemany
     if deal_list_items:
         insert_sql = '''
-            INSERT INTO deal_list (item_id, shop_id, cluster)
-            VALUES (%s, %s, %s)
+            INSERT INTO deal_list (item_id, shop_id, cluster, brand_name)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (item_id) DO UPDATE SET
                 shop_id = EXCLUDED.shop_id,
-                cluster = EXCLUDED.cluster
+                cluster = EXCLUDED.cluster,
+                brand_name = EXCLUDED.brand_name
         '''
         psycopg2.extras.execute_batch(cursor, insert_sql, deal_list_items, page_size=500)
     
@@ -442,6 +630,7 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
     item_id_col = None
     shop_id_col = None
     cluster_col = None
+    brand_col = None  # New: column for brand name (Nhãn hàng)
     
     if deallist_data:
         first_row_keys = list(deallist_data[0].keys())
@@ -454,6 +643,9 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
                 shop_id_col = key
             if 'cluster' in key_lower:
                 cluster_col = key
+            # Look for brand column: "Nhãn hàng" only (exact match to avoid matching price columns)
+            if key_lower == 'nhãnhàng' or key_lower == 'nhanhang' or key.strip().lower() == 'nhãn hàng':
+                brand_col = key
         # Second pass: fallback to 'itemid' if finalitemid not found
         if not item_id_col:
             for key in first_row_keys:
@@ -463,7 +655,7 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
                     break
     
     # Debug log: which columns were found
-    print(f"[DEALLIST2 DEBUG] item_id_col='{item_id_col}', shop_id_col='{shop_id_col}', cluster_col='{cluster_col}'")
+    print(f"[DEALLIST2 DEBUG] item_id_col='{item_id_col}', shop_id_col='{shop_id_col}', cluster_col='{cluster_col}', brand_col='{brand_col}'")
     
     if not item_id_col or not shop_id_col:
         print(f"[DEALLIST2 DEBUG] Headers found: {first_row_keys if deallist_data else 'No data'}")
@@ -476,14 +668,23 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
         shop_id_raw = str(row.get(shop_id_col, '')).strip()
         cluster = str(row.get(cluster_col, '')).strip() if cluster_col else ''
         
+        # Get brand_name from dedicated column if exists, otherwise from shop_id format "brand+shopid"
+        brand_name = ''
+        if brand_col:
+            brand_name = str(row.get(brand_col, '')).strip()
+        
+        # Extract shop_id and fallback brand_name from format "brand+shopid"
         if '+' in shop_id_raw:
-            shop_id = shop_id_raw.split('+')[-1]
+            parts = shop_id_raw.split('+')
+            if not brand_name:  # Only use this if no dedicated brand column
+                brand_name = parts[0].strip()  # Brand name before +
+            shop_id = parts[-1]  # Shop ID after +
         else:
             shop_id = shop_id_raw
         shop_id = ''.join(c for c in shop_id if c.isdigit())
         
         if item_id and shop_id:
-            deal_list_items.append((item_id, shop_id, cluster))
+            deal_list_items.append((item_id, shop_id, cluster, brand_name))
     
     print(f"[DEALLIST2] Preparing to save {len(deal_list_items)} items to deal_list_2 table")
     
@@ -491,13 +692,24 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Create deal_list_2 table if not exists
+    # Create deal_list_2 table if not exists (with brand_name column)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS deal_list_2 (
             item_id TEXT PRIMARY KEY,
             shop_id TEXT,
-            cluster TEXT
+            cluster TEXT,
+            brand_name TEXT
         )
+    ''')
+    
+    # Add brand_name column if not exists (for existing tables)
+    cursor.execute('''
+        DO $$ 
+        BEGIN 
+            ALTER TABLE deal_list_2 ADD COLUMN IF NOT EXISTS brand_name TEXT;
+        EXCEPTION WHEN duplicate_column THEN 
+            NULL;
+        END $$;
     ''')
     
     # Clear old data
@@ -506,11 +718,12 @@ def sync_deallist2_only(spreadsheet_url, deallist_sheet_name):
     # Batch insert
     if deal_list_items:
         insert_sql = '''
-            INSERT INTO deal_list_2 (item_id, shop_id, cluster)
-            VALUES (%s, %s, %s)
+            INSERT INTO deal_list_2 (item_id, shop_id, cluster, brand_name)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (item_id) DO UPDATE SET
                 shop_id = EXCLUDED.shop_id,
-                cluster = EXCLUDED.cluster
+                cluster = EXCLUDED.cluster,
+                brand_name = EXCLUDED.brand_name
         '''
         psycopg2.extras.execute_batch(cursor, insert_sql, deal_list_items, page_size=500)
     
@@ -928,19 +1141,73 @@ def stop_auto_sync():
 # ============== Auth Decorators ==============
 
 def admin_required(f):
-    """Decorator to require admin login"""
+    """Decorator to require admin login (BOD or Lead)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('is_admin'):
-            return redirect(url_for('admin_login'))
+            return redirect(url_for('login_page'))  # Changed from admin_login to login_page
         return f(*args, **kwargs)
+    return decorated_function
+
+def bod_required(f):
+    """Decorator to require BOD access for settings
+    
+    Allows access if:
+    1. Admin password login (is_admin=True, no user object) - full admin access
+    2. Gmail login with role='bod'
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get('user')
+        is_admin = session.get('is_admin')
+        
+        # Case 1: Admin password login (is_admin=True, no user) -> ALLOW
+        if is_admin and not user:
+            return f(*args, **kwargs)
+        
+        # Case 2: Gmail login with role='bod' -> ALLOW
+        if user and user.get('role') == 'bod':
+            return f(*args, **kwargs)
+        
+        # Otherwise: DENY access
+        if is_admin:
+            return redirect(url_for('admin'))
+        return redirect(url_for('login_page'))  # Changed from admin_login to login_page
+    return decorated_function
+
+def login_required(f):
+    """Decorator to require any type of login (Gmail or Admin password)
+    
+    Allows access if:
+    1. User logged in via Gmail (session['user'] exists)
+    2. Admin logged in via password (session['is_admin'] = True)
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get('user')
+        is_admin = session.get('is_admin')
+        
+        # Allow if logged in via Gmail OR admin password
+        if user or is_admin:
+            return f(*args, **kwargs)
+        
+        # Not logged in - redirect to login page
+        return redirect(url_for('login_page'))
     return decorated_function
 
 # ============== Routes ==============
 
+# ============== Public Landing Pages ==============
+
+@app.route('/tet-voucher')
+@app.route('/tet-voucher/')
+def tet_voucher_2026():
+    """Tết eVoucher 2026 Landing Page - Public (không cần login)"""
+    return render_template('tet_voucher_2026.html')
+
 @app.route('/')
 def index():
-    """Public landing page - BeyondK Network"""
+    """Root - Landing Page"""
     return render_template('landing.html')
 
 @app.route('/admin')
@@ -961,8 +1228,14 @@ def admin_history():
     """Session History page - view archived sessions"""
     return render_template('history.html')
 
+@app.route('/admin/fix-history')
+@bod_required
+def admin_fix_history():
+    """Fix History Names page - one-time tool to fix old history records"""
+    return render_template('fix_history.html')
+
 @app.route('/admin/setting')
-@admin_required
+@bod_required
 def admin_setting():
     """Admin Settings panel"""
     config = {
@@ -992,9 +1265,320 @@ def admin_login():
 def admin_logout():
     """Admin logout"""
     session.pop('is_admin', None)
+    session.pop('user', None)
     return redirect(url_for('index'))
 
+# ============== Google OAuth Routes ==============
+
+@app.route('/login')
+def login_page():
+    """Public login page"""
+    error = request.args.get('error')
+    return render_template('login.html', error=error)
+
+@app.route('/auth/google')
+def auth_google():
+    """Redirect to Google OAuth"""
+    if not oauth:
+        return redirect(url_for('login_page', error='Google OAuth chưa được cấu hình'))
+    redirect_uri = url_for('auth_callback', _external=True)
+    # prompt=select_account forces Google to show account picker
+    # login_hint='' prevents auto-selecting the previous account
+    return oauth.google.authorize_redirect(
+        redirect_uri, 
+        prompt='select_account',
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+
+@app.route('/auth/callback')
+def auth_callback():
+    """Google OAuth callback"""
+    if not oauth:
+        return redirect(url_for('login_page', error='Google OAuth chưa được cấu hình'))
+    
+    try:
+        token = oauth.google.authorize_access_token()
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            return redirect(url_for('login_page', error='Không lấy được thông tin người dùng'))
+        
+        email = user_info.get('email', '')
+        name = user_info.get('name', '')
+        picture = user_info.get('picture', '')
+        
+        # Check if email is @beyondk.live
+        if not email.endswith('@beyondk.live'):
+            return redirect(url_for('login_page', error='Chỉ email @beyondk.live mới được phép đăng nhập'))
+        
+        # Get or create user in database
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Check if user exists
+        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        user = cursor.fetchone()
+        
+        if user:
+            # Update last login
+            cursor.execute('UPDATE users SET last_login = NOW(), name = %s, picture = %s WHERE email = %s',
+                          (name, picture, email))
+        else:
+            # Create new user with default 'staff' role
+            cursor.execute('''
+                INSERT INTO users (email, name, picture, role, last_login)
+                VALUES (%s, %s, %s, 'staff', NOW())
+                RETURNING *
+            ''', (email, name, picture))
+            user = cursor.fetchone()
+        
+        conn.commit()
+        
+        # Refresh user data
+        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        user = cursor.fetchone()
+        close_db(conn)
+        
+        # Store user in session
+        session['user'] = {
+            'id': user['id'],
+            'email': user['email'],
+            'name': user['name'],
+            'picture': user['picture'],
+            'role': user['role']
+        }
+        
+        # Redirect based on role
+        if user['role'] in ['bod', 'lead']:
+            session['is_admin'] = True
+            return redirect(url_for('admin'))
+        else:
+            return redirect(url_for('staff_dashboard'))
+            
+    except Exception as e:
+        print(f"[OAUTH ERROR] {e}")
+        return redirect(url_for('login_page', error=f'Lỗi đăng nhập: {str(e)}'))
+
+@app.route('/logout')
+def logout():
+    """Logout user"""
+    session.pop('user', None)
+    session.pop('is_admin', None)
+    return redirect(url_for('index'))
+
+@app.route('/staff')
+@login_required
+def staff_dashboard():
+    """Staff Dashboard - search by Shop ID or Product Name"""
+    return render_template('staff.html')
+
+# ============== User Management API ==============
+
+@app.route('/api/users')
+@admin_required
+def api_get_users():
+    """API: Get all users"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute('''
+            SELECT id, email, name, picture, role, created_at, last_login
+            FROM users
+            ORDER BY 
+                CASE role 
+                    WHEN 'bod' THEN 1 
+                    WHEN 'lead' THEN 2 
+                    ELSE 3 
+                END,
+                email
+        ''')
+        users = cursor.fetchall()
+        close_db(conn)
+        
+        # Format dates for JSON
+        for user in users:
+            if user.get('created_at'):
+                user['created_at'] = user['created_at'].isoformat()
+            if user.get('last_login'):
+                user['last_login'] = user['last_login'].isoformat()
+        
+        return jsonify({'success': True, 'users': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@admin_required
+def api_update_user(user_id):
+    """API: Update user role"""
+    try:
+        data = request.get_json()
+        new_role = data.get('role', 'staff')
+        
+        if new_role not in ['bod', 'lead', 'staff']:
+            return jsonify({'success': False, 'error': 'Invalid role'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET role = %s WHERE id = %s', (new_role, user_id))
+        conn.commit()
+        close_db(conn)
+        
+        return jsonify({'success': True, 'message': f'Đã cập nhật role thành {new_role}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/users', methods=['POST'])
+@admin_required
+def api_add_user():
+    """API: Pre-register a user with a specific role"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        role = data.get('role', 'staff')
+        
+        if not email or not email.endswith('@beyondk.live'):
+            return jsonify({'success': False, 'error': 'Email phải có đuôi @beyondk.live'})
+        
+        if role not in ['bod', 'lead', 'staff']:
+            return jsonify({'success': False, 'error': 'Invalid role'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if user already exists
+        cursor.execute('SELECT id FROM users WHERE email = %s', (email,))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing user's role
+            cursor.execute('UPDATE users SET role = %s WHERE email = %s', (role, email))
+            message = f'Đã cập nhật role cho {email}'
+        else:
+            # Create new pre-registered user
+            cursor.execute('''
+                INSERT INTO users (email, role, name)
+                VALUES (%s, %s, %s)
+            ''', (email, role, email.split('@')[0]))
+            message = f'Đã thêm {email} với role {role}'
+        
+        conn.commit()
+        close_db(conn)
+        
+        return jsonify({'success': True, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def api_delete_user(user_id):
+    """API: Delete a user"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM users WHERE id = %s', (user_id,))
+        conn.commit()
+        close_db(conn)
+        
+        return jsonify({'success': True, 'message': 'Đã xóa user'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 # ============== API Routes ==============
+
+@app.route('/api/me')
+def api_me():
+    """API: Get current user info from session (for debugging)"""
+    user = session.get('user')
+    is_admin = session.get('is_admin')
+    if user:
+        return jsonify({
+            'success': True,
+            'user': user,
+            'is_admin': is_admin,
+            'can_access_settings': user.get('role') in ['bod', 'lead']
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'Not logged in',
+            'is_admin': is_admin
+        })
+
+@app.route('/api/staff/search')
+def api_staff_search():
+    """API: Search products by Shop ID or product name (for Staff Dashboard)"""
+    query = request.args.get('q', '').strip()
+    session_id = request.args.get('session_id', '').strip()
+    
+    if not query:
+        return jsonify({'success': False, 'error': 'Query required', 'data': []})
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Check if query is numeric (Shop ID search)
+        is_shop_id = query.isdigit() and len(query) >= 5
+        
+        # Determine which deal_list to use based on session mapping (same as admin page)
+        deallist_table = "deal_list"
+        if session_id:
+            deallist_id = get_deallist_for_session(session_id)
+            if deallist_id == 2:
+                deallist_table = "deal_list_2"
+                print(f"[STAFF API] Using deal_list_2 for session {session_id}")
+        
+        # Build WHERE conditions
+        conditions = ["(g.is_archived IS NULL OR g.is_archived = FALSE)"]
+        params = []
+        
+        if is_shop_id:
+            # Search by Shop ID - check both deal_list and gmv_data
+            conditions.append("(d.shop_id = %s OR g.shop_id = %s)")
+            params.extend([query, query])
+        else:
+            # Search by product name (case-insensitive)
+            conditions.append("g.item_name ILIKE %s")
+            params.append(f"%{query}%")
+        
+        if session_id:
+            conditions.append("g.session_id = %s")
+            params.append(session_id)
+        
+        where_sql = " AND ".join(conditions)
+        
+        sql = f'''
+            SELECT 
+                g.item_id,
+                g.item_name,
+                g.cover_image,
+                g.revenue,
+                COALESCE(d.shop_id, g.shop_id) as shop_id,
+                g.clicks,
+                g.add_to_cart,
+                g.orders,
+                g.confirmed_revenue,
+                g.session_id
+            FROM gmv_data g
+            LEFT JOIN {deallist_table} d ON g.item_id = d.item_id
+            WHERE {where_sql}
+            ORDER BY g.revenue DESC
+            LIMIT 100
+        '''
+        
+        cursor.execute(sql, params)
+        data = cursor.fetchall()
+        close_db(conn)
+        
+        return jsonify({
+            'success': True,
+            'data': data,
+            'count': len(data),
+            'is_shop_id_search': is_shop_id
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'data': []})
 
 @app.route('/api/top-gmv')
 def api_top_gmv():
@@ -1181,6 +1765,7 @@ def api_all_data():
             'success': True,
             'data': cached,
             'shop_ids': data_cache['shop_ids'],
+            'shop_info': data_cache.get('shop_info', []),
             'stats': data_cache['stats'],
             'last_sync': data_cache.get('latest_datetime'),
             'from_cache': True
@@ -1212,7 +1797,7 @@ def api_all_data():
     # Get all data with optional ORDER BY and session filter - JOIN with appropriate deal_list
     query = f'''
         SELECT 
-            g.item_id, g.item_name, g.revenue,
+            g.item_id, g.item_name, g.cover_image, g.revenue,
             COALESCE(d.shop_id, g.shop_id) as shop_id,
             CASE 
                 WHEN COALESCE(d.shop_id, g.shop_id) IS NOT NULL AND COALESCE(d.shop_id, g.shop_id) != ''
@@ -1230,19 +1815,49 @@ def api_all_data():
     cursor.execute(query, params)
     rows = cursor.fetchall()
     
-    # Get shop_ids - JOIN with deal_list to get all shop_ids including from deal_list
-    cursor.execute('''
-        SELECT DISTINCT COALESCE(d.shop_id, g.shop_id) as shop_id 
-        FROM gmv_data g
-        LEFT JOIN deal_list d ON g.item_id = d.item_id
-        WHERE COALESCE(d.shop_id, g.shop_id) IS NOT NULL 
-          AND COALESCE(d.shop_id, g.shop_id) != ''
-        ORDER BY shop_id
-    ''')
-    shop_ids = [row['shop_id'] for row in cursor.fetchall()]
+    # Get shop_ids with brand_name - JOIN with deal_list to get brand info
+    # First, try to add brand_name column if not exists (for backward compatibility)
+    try:
+        cursor.execute('''
+            ALTER TABLE deal_list ADD COLUMN IF NOT EXISTS brand_name TEXT
+        ''')
+        conn.commit()
+    except Exception as e:
+        print(f"[API] Note: Could not add brand_name column: {e}")
+        conn.rollback()
+    
+    # Try to query with brand_name, fallback to without if column doesn't exist
+    try:
+        cursor.execute('''
+            SELECT DISTINCT 
+                COALESCE(d.shop_id, g.shop_id) as shop_id,
+                COALESCE(d.brand_name, '') as brand_name
+            FROM gmv_data g
+            LEFT JOIN deal_list d ON g.item_id = d.item_id
+            WHERE COALESCE(d.shop_id, g.shop_id) IS NOT NULL 
+              AND COALESCE(d.shop_id, g.shop_id) != ''
+            ORDER BY shop_id
+        ''')
+        shop_info_rows = cursor.fetchall()
+        # Build shop_ids list (for backward compatibility) and shop_info list (new, with brand)
+        shop_ids = [row['shop_id'] for row in shop_info_rows]
+        shop_info = [{'shop_id': row['shop_id'], 'brand_name': row['brand_name']} for row in shop_info_rows]
+    except Exception as e:
+        print(f"[API] Fallback: brand_name column not available, using shop_id only: {e}")
+        cursor.execute('''
+            SELECT DISTINCT COALESCE(d.shop_id, g.shop_id) as shop_id 
+            FROM gmv_data g
+            LEFT JOIN deal_list d ON g.item_id = d.item_id
+            WHERE COALESCE(d.shop_id, g.shop_id) IS NOT NULL 
+              AND COALESCE(d.shop_id, g.shop_id) != ''
+            ORDER BY shop_id
+        ''')
+        shop_info_rows = cursor.fetchall()
+        shop_ids = [row['shop_id'] for row in shop_info_rows]
+        shop_info = [{'shop_id': row['shop_id'], 'brand_name': ''} for row in shop_info_rows]
     
     # Get stats
-    cursor.execute('''
+    cursor.execute(f'''
         SELECT 
             COUNT(*) as total_products,
             COALESCE(SUM(revenue), 0) as total_revenue,
@@ -1251,8 +1866,9 @@ def api_all_data():
             COALESCE(SUM(items_sold), 0) as total_items_sold,
             COALESCE(SUM(confirmed_revenue), 0) as total_confirmed_revenue,
             COUNT(CASE WHEN link_sp IS NOT NULL AND link_sp != '' THEN 1 END) as with_link
-        FROM gmv_data
-    ''')
+        FROM gmv_data g
+        {where_clause}
+    ''', params)
     stats_row = cursor.fetchone()
     # Get latest datetime from gmv_data
     cursor.execute('SELECT MAX(datetime) as latest_datetime FROM gmv_data')
@@ -1266,6 +1882,7 @@ def api_all_data():
         data.append({
             'item_id': row['item_id'],
             'item_name': row['item_name'],
+            'cover_image': row.get('cover_image', ''),
             'revenue': row['revenue'],
             'shop_id': row['shop_id'],
             'link_sp': row['link_sp'],
@@ -1293,11 +1910,13 @@ def api_all_data():
     set_cached_data(data, shop_ids, stats)
     data_cache['sort_key'] = cache_key
     data_cache['latest_datetime'] = latest_datetime
+    data_cache['shop_info'] = shop_info
     
     return jsonify({
         'success': True,
         'data': data,
         'shop_ids': shop_ids,
+        'shop_info': shop_info,
         'stats': stats,
         'last_sync': latest_datetime,
         'from_cache': False
@@ -1586,6 +2205,128 @@ def api_sessions():
         return jsonify({'success': False, 'error': str(e), 'sessions': []})
 
 
+
+@app.route('/api/session-rename', methods=['POST'])
+@admin_required
+def api_session_rename():
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        new_title = data.get('new_title')
+        
+        if not session_id or not new_title:
+            return jsonify({'success': False, 'error': 'Missing session_id or new_title'})
+        
+        from db_helpers import update_session_title
+        success = update_session_title(DATABASE_URL, session_id, new_title)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Updated session title'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to update database'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/session-deallist', methods=['GET'])
+
+def api_session_deallist_get():
+    """API: Get session -> deallist mapping"""
+    try:
+        mapping = get_session_deallist_mapping()
+        return jsonify({
+            'success': True,
+            'mapping': mapping
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'mapping': {}})
+
+
+@app.route('/api/sessions/cleanup', methods=['POST'])
+@admin_required
+def api_cleanup_old_sessions():
+    """API: Delete old sessions, keep only the 2 newest sessions"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get all sessions ordered by session_id DESC (newest first)
+        cursor.execute('''
+            SELECT DISTINCT session_id 
+            FROM gmv_data 
+            WHERE session_id IS NOT NULL
+            ORDER BY session_id DESC
+        ''')
+        all_sessions = [row[0] for row in cursor.fetchall()]
+        
+        if len(all_sessions) <= 2:
+            conn.close()
+            return jsonify({
+                'success': True,
+                'message': f'Chỉ có {len(all_sessions)} session(s), không cần xóa',
+                'deleted_sessions': []
+            })
+        
+        # Keep only 2 newest, delete the rest
+        sessions_to_keep = all_sessions[:2]
+        sessions_to_delete = all_sessions[2:]
+        
+        # Delete old sessions
+        deleted_count = 0
+        for session_id in sessions_to_delete:
+            cursor.execute('DELETE FROM gmv_data WHERE session_id = %s', (session_id,))
+            deleted_count += cursor.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã xóa {len(sessions_to_delete)} sessions cũ ({deleted_count} items)',
+            'kept_sessions': sessions_to_keep,
+            'deleted_sessions': sessions_to_delete
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/sessions/delete', methods=['POST'])
+@admin_required
+def api_delete_selected_sessions():
+    """API: Delete selected sessions (does NOT touch gmv_history)"""
+    try:
+        data = request.get_json()
+        session_ids = data.get('session_ids', [])
+        
+        if not session_ids:
+            return jsonify({'success': False, 'error': 'Không có session nào được chọn'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        deleted_count = 0
+        for session_id in session_ids:
+            # Only delete from gmv_data - NOT from gmv_history!
+            cursor.execute('DELETE FROM gmv_data WHERE session_id = %s', (session_id,))
+            deleted_count += cursor.rowcount
+            
+            # Also delete from session_deallist mapping
+            cursor.execute('DELETE FROM session_deallist_config WHERE session_id = %s', (session_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã xóa {len(session_ids)} session(s) ({deleted_count} items từ gmv_data)',
+            'deleted_count': len(session_ids),
+            'deleted_sessions': session_ids
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/archived-sessions')
 @admin_required
 def api_archived_sessions():
@@ -1674,6 +2415,424 @@ def api_history_data():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e), 'data': []})
+
+# ============== Overview Metrics API Routes ==============
+
+@app.route('/api/overview/sessions')
+def api_overview_sessions():
+    """API: Get list of sessions with overview data (with caching)"""
+    try:
+        # Check cache first
+        cached = get_cached_overview_sessions()
+        if cached is not None:
+            print(f"[CACHE] Serving {len(cached)} overview sessions from cache")
+            return jsonify({
+                'success': True,
+                'sessions': cached,
+                'from_cache': True
+            })
+        
+        # Cache miss - load from database
+        print("[CACHE] Overview sessions cache miss, loading from database...")
+        
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'error': 'DATABASE_URL not configured', 'sessions': []})
+        
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cursor.execute('''
+            SELECT 
+                session_id,
+                session_title,
+                scraped_at as last_scraped
+            FROM overview_live
+            WHERE session_id IS NOT NULL
+            ORDER BY session_id DESC
+        ''')
+        
+        rows = cursor.fetchall()
+        close_db(conn)
+        
+        sessions = [dict(row) for row in rows]
+        
+        # Cache the result
+        set_cached_overview_sessions(sessions)
+        
+        return jsonify({
+            'success': True,
+            'sessions': sessions,
+            'from_cache': False
+        })
+    except Exception as e:
+        print(f"[API ERROR] /api/overview/sessions: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'sessions': []})
+
+
+@app.route('/api/overview/live')
+def api_overview_live():
+    """API: Get live overview metrics for a session (with caching)"""
+    import time
+    start_time = time.time()
+    
+    try:
+        session_id = request.args.get('session_id')
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'session_id required', 'data': None})
+        
+        # Check cache first
+        cache_start = time.time()
+        cached = get_cached_overview_live(session_id)
+        cache_time = time.time() - cache_start
+        
+        if cached is not None:
+            total_time = time.time() - start_time
+            print(f"[CACHE] Serving overview live data for session {session_id} from cache (cache_check={cache_time*1000:.0f}ms, total={total_time*1000:.0f}ms)")
+            return jsonify({
+                'success': True,
+                'data': cached,
+                'from_cache': True
+            })
+        
+        # Cache miss - load from database
+        print(f"[CACHE] Overview live cache miss for session {session_id}, loading from database...")
+        
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'error': 'DATABASE_URL not configured', 'data': None})
+        
+        db_start = time.time()
+        conn = get_db()
+        conn_time = time.time() - db_start
+        
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        query_start = time.time()
+        cursor.execute('''
+            SELECT 
+                session_id,
+                session_title,
+                scraped_at,
+                engaged_viewers,
+                comments,
+                atc,
+                views,
+                avg_view_time,
+                comments_rate,
+                gpm,
+                placed_order,
+                abs,
+                viewers,
+                pcu,
+                ctr,
+                co,
+                buyers,
+                placed_items_sold
+            FROM overview_live
+            WHERE session_id = %s
+        ''', (session_id,))
+        
+        row = cursor.fetchone()
+        query_time = time.time() - query_start
+        close_db(conn)
+        
+        total_time = time.time() - start_time
+        print(f"[API TIMING] /api/overview/live: connect={conn_time*1000:.0f}ms, query={query_time*1000:.0f}ms, total={total_time*1000:.0f}ms")
+        
+        if row:
+            data = dict(row)
+            
+            # Cache the result
+            set_cached_overview_live(session_id, data)
+            
+            return jsonify({
+                'success': True,
+                'data': data,
+                'from_cache': False
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No data found for this session',
+                'data': None
+            })
+    except Exception as e:
+        print(f"[API ERROR] /api/overview/live: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'data': None})
+
+
+@app.route('/api/overview/history')
+def api_overview_history():
+    """API: Get historical overview metrics for a session"""
+    try:
+        session_id = request.args.get('session_id')
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'session_id required', 'data': []})
+        
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'error': 'DATABASE_URL not configured', 'data': []})
+        
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Query overview_history for specific session_id (15 metrics, no gmv/confirmed)
+        cursor.execute('''
+            SELECT 
+                id,
+                session_id,
+                session_title,
+                archived_at,
+                engaged_viewers,
+                comments,
+                atc,
+                views,
+                avg_view_time,
+                comments_rate,
+                gpm,
+                placed_order,
+                abs,
+                viewers,
+                pcu,
+                ctr,
+                co,
+                buyers,
+                placed_items_sold
+            FROM overview_history
+            WHERE session_id = %s
+            ORDER BY archived_at DESC
+            LIMIT 10
+        ''', (session_id,))
+        
+        rows = cursor.fetchall()
+        close_db(conn)
+        
+        data = [dict(row) for row in rows]
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        print(f"[API ERROR] /api/overview/history: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'data': []})
+
+# ============== Fix History API Routes ==============
+
+@app.route('/api/fix-history/records')
+@bod_required
+def api_fix_history_records():
+    """API: Get all history records for a session (grouped by archived_at)"""
+    session_id = request.args.get('session_id', '')
+    
+    if not session_id:
+        return jsonify({'success': False, 'error': 'session_id is required', 'records': []})
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Get distinct archived_at timestamps with their session_title and item count
+        cursor.execute('''
+            SELECT 
+                session_id,
+                archived_at,
+                session_title,
+                COUNT(*) as item_count,
+                MIN(id) as id
+            FROM gmv_history
+            WHERE session_id = %s
+            GROUP BY session_id, archived_at, session_title
+            ORDER BY archived_at DESC
+        ''', (session_id,))
+        
+        records = cursor.fetchall()
+        close_db(conn)
+        
+        # Format timestamps
+        formatted_records = []
+        for r in records:
+            formatted_records.append({
+                'id': str(r['id']),
+                'session_id': r['session_id'],
+                'archived_at': r['archived_at'].isoformat() if r['archived_at'] else None,
+                'session_title': r['session_title'],
+                'item_count': r['item_count']
+            })
+        
+        return jsonify({
+            'success': True,
+            'records': formatted_records,
+            'count': len(formatted_records)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'records': []})
+
+@app.route('/api/fix-history/update', methods=['POST'])
+@bod_required
+def api_fix_history_update():
+    """API: Update session_title for a specific archived_at timestamp (OLD - kept for compatibility)"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id', '')
+        archived_at = data.get('archived_at', '')
+        new_title = data.get('new_title', '').strip()
+        
+        if not session_id or not archived_at or not new_title:
+            return jsonify({'success': False, 'error': 'Missing required fields'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Update all records with this session_id and archived_at
+        cursor.execute('''
+            UPDATE gmv_history
+            SET session_title = %s
+            WHERE session_id = %s AND archived_at = %s
+        ''', (new_title, session_id, archived_at))
+        
+        updated_count = cursor.rowcount
+        conn.commit()
+        close_db(conn)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã cập nhật {updated_count} bản ghi với tên mới: {new_title}'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/fix-history/update-session', methods=['POST'])
+@bod_required
+def api_fix_history_update_session():
+    """API: Update session_title for ALL records of a session (BATCH PROCESSING)"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id', '')
+        new_title = data.get('new_title', '').strip()
+        
+        if not session_id or not new_title:
+            return jsonify({'success': False, 'error': 'Missing session_id or new_title'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # First, count total rows to update
+        cursor.execute('SELECT COUNT(*) FROM gmv_history WHERE session_id = %s', (session_id,))
+        total_rows = cursor.fetchone()[0]
+        
+        if total_rows == 0:
+            close_db(conn)
+            return jsonify({'success': False, 'error': 'Session không tồn tại'})
+        
+        # Batch update to avoid overwhelming database
+        batch_size = 500
+        updated_count = 0
+        
+        # Use LIMIT/OFFSET approach with ctid for safe batch updates
+        while True:
+            # Update batch with timeout
+            cursor.execute('''
+                UPDATE gmv_history
+                SET session_title = %s
+                WHERE ctid IN (
+                    SELECT ctid FROM gmv_history
+                    WHERE session_id = %s AND session_title != %s
+                    LIMIT %s
+                )
+            ''', (new_title, session_id, new_title, batch_size))
+            
+            batch_updated = cursor.rowcount
+            updated_count += batch_updated
+            
+            # Commit after each batch
+            conn.commit()
+            
+            # Break if no more rows to update
+            if batch_updated < batch_size:
+                break
+        
+        close_db(conn)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã cập nhật {updated_count}/{total_rows} bản ghi với tên mới: {new_title}',
+            'updated_count': updated_count,
+            'total_rows': total_rows
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/fix-history/delete-session', methods=['POST'])
+@bod_required
+def api_fix_history_delete_session():
+    """API: Delete ALL records of a session from gmv_history (BATCH PROCESSING)"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id', '')
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Missing session_id'})
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # First, count total rows to delete
+        cursor.execute('SELECT COUNT(*) FROM gmv_history WHERE session_id = %s', (session_id,))
+        total_rows = cursor.fetchone()[0]
+        
+        if total_rows == 0:
+            close_db(conn)
+            return jsonify({'success': False, 'error': 'Session không tồn tại'})
+        
+        # Batch delete to avoid overwhelming database
+        batch_size = 500
+        deleted_count = 0
+        
+        while True:
+            # Delete batch with LIMIT
+            cursor.execute('''
+                DELETE FROM gmv_history
+                WHERE ctid IN (
+                    SELECT ctid FROM gmv_history
+                    WHERE session_id = %s
+                    LIMIT %s
+                )
+            ''', (session_id, batch_size))
+            
+            batch_deleted = cursor.rowcount
+            deleted_count += batch_deleted
+            
+            # Commit after each batch
+            conn.commit()
+            
+            # Break if no more rows to delete
+            if batch_deleted < batch_size:
+                break
+        
+        # Run VACUUM to reclaim space (async, don't wait)
+        try:
+            cursor.execute('VACUUM ANALYZE gmv_history')
+            conn.commit()
+        except Exception as vacuum_error:
+            print(f"[VACUUM] Warning: {vacuum_error}")
+        
+        close_db(conn)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã xóa {deleted_count}/{total_rows} bản ghi của session {session_id}',
+            'deleted_count': deleted_count,
+            'total_rows': total_rows
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/analytics/top-products')
 def api_analytics_top_products():
@@ -1906,6 +3065,35 @@ def api_top_products():
 
 # ============== Raw Session Data APIs ==============
 
+@app.route('/api/get-sheet-names', methods=['POST'])
+@admin_required
+def api_get_sheet_names():
+    """API: Get list of sheet names from a Google Spreadsheet URL"""
+    data = request.get_json()
+    spreadsheet_url = data.get('spreadsheet_url', '')
+    
+    if not spreadsheet_url:
+        return jsonify({'success': False, 'error': 'URL không được để trống'})
+    
+    try:
+        gc = get_gspread_client()
+        if not gc:
+            return jsonify({'success': False, 'error': 'Không thể kết nối Google Sheets'})
+        
+        spreadsheet = gc.open_by_url(spreadsheet_url)
+        sheet_names = [sheet.title for sheet in spreadsheet.worksheets()]
+        spreadsheet_title = spreadsheet.title
+        
+        return jsonify({
+            'success': True,
+            'spreadsheet_title': spreadsheet_title,
+            'sheets': sheet_names
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/sync-raw-monthly', methods=['POST'])
 @admin_required
 def api_sync_raw_monthly():
@@ -1947,6 +3135,11 @@ def api_sync_raw_monthly():
         clicks_col = None
         file_col = None
         session_col = None
+        total_orders_col = None
+        items_sold_col = None
+        add_to_cart_col = None
+        click_to_product_rate_col = None
+        click_to_order_rate_col = None
         
         for key in keys:
             key_lower = key.lower().replace(' ', '').replace('_', '')
@@ -1981,20 +3174,46 @@ def api_sync_raw_monthly():
             if session_col is None:
                 if 'phiên' in key_original or 'phien' in key_lower or 'session' in key_lower:
                     session_col = key
+            
+            # Match total orders column
+            if total_orders_col is None:
+                if 'tổng đơn hàng' in key_original or 'tongdonhang' in key_lower or 'totalorders' in key_lower or 'orders' in key_lower:
+                    total_orders_col = key
+            
+            # Match items sold column
+            if items_sold_col is None:
+                if 'các mặt hàng được bán' in key_original or 'cacmathangduocban' in key_lower or 'itemssold' in key_lower or 'mặt hàng' in key_original:
+                    items_sold_col = key
+            
+            # Match add to cart column
+            if add_to_cart_col is None:
+                if 'thêm vào giỏ hàng' in key_original or 'themvaogiohang' in key_lower or 'addtocart' in key_lower or 'giỏ hàng' in key_original:
+                    add_to_cart_col = key
+            
+            # Match click to product rate column
+            if click_to_product_rate_col is None:
+                if 'tỷ lệ click vào sản phẩm' in key_original or 'tyleclickvaosanpham' in key_lower or 'clicktoproductrate' in key_lower or 'product click rate' in key_original:
+                    click_to_product_rate_col = key
+            
+            # Match click to order rate column
+            if click_to_order_rate_col is None:
+                if 'tỷ lệ click để đặt hàng' in key_original or 'tyleclickdedathang' in key_lower or 'clicktoorderrate' in key_lower or 'click to order rate' in key_original:
+                    click_to_order_rate_col = key
         
         if not item_id_col:
             return jsonify({'success': False, 'error': 'Không tìm thấy cột Item ID'})
         
         # Log detected columns for debugging
         print(f"[SYNC DEBUG] Headers: {keys}")
-        print(f"[SYNC DEBUG] Detected: item_name_col={item_name_col}, item_id_col={item_id_col}, revenue_col={revenue_col}, clicks_col={clicks_col}, file_col={file_col}, session_col={session_col}")
+        print(f"[SYNC DEBUG] Detected: item_name_col={item_name_col}, item_id_col={item_id_col}, revenue_col={revenue_col}, clicks_col={clicks_col}, file_col={file_col}, session_col={session_col}, total_orders_col={total_orders_col}, items_sold_col={items_sold_col}, add_to_cart_col={add_to_cart_col}, click_to_product_rate_col={click_to_product_rate_col}, click_to_order_rate_col={click_to_order_rate_col}")
         
         # Clear old data and insert new
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM raw_session_data')
         
-        count = 0
+        # Prepare batch data for faster insert
+        batch_data = []
         for row in all_data:
             item_id = str(row.get(item_id_col, '')).strip()
             if not item_id:
@@ -2021,14 +3240,56 @@ def api_sync_raw_monthly():
                 clicks = 0
             
             file_name = str(row.get(file_col, '')).strip() if file_col else ''
-            session_name = str(row.get(session_col, '')).strip() if session_col else ''
+            # Use session_col if exists, otherwise use the selected sheet_name as session_name
+            if session_col:
+                session_name = str(row.get(session_col, '')).strip()
+            else:
+                session_name = sheet_name  # Use selected sheet name as session name
             
-            cursor.execute('''
-                INSERT INTO raw_session_data (item_name, item_id, revenue, clicks, file_name, session_name)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (item_name, item_id, revenue, clicks, file_name, session_name))
-            count += 1
+            # Parse total orders
+            total_orders_raw = row.get(total_orders_col, 0) if total_orders_col else 0
+            if isinstance(total_orders_raw, str):
+                total_orders_raw = total_orders_raw.replace(',', '')
+            try:
+                total_orders = int(total_orders_raw)
+            except:
+                total_orders = 0
+            
+            # Parse items sold
+            items_sold_raw = row.get(items_sold_col, 0) if items_sold_col else 0
+            if isinstance(items_sold_raw, str):
+                items_sold_raw = items_sold_raw.replace(',', '')
+            try:
+                items_sold = int(items_sold_raw)
+            except:
+                items_sold = 0
+            
+            # Parse add to cart
+            add_to_cart_raw = row.get(add_to_cart_col, 0) if add_to_cart_col else 0
+            if isinstance(add_to_cart_raw, str):
+                add_to_cart_raw = add_to_cart_raw.replace(',', '')
+            try:
+                add_to_cart = int(add_to_cart_raw)
+            except:
+                add_to_cart = 0
+            
+            # Parse click to product rate (as text percentage like "5.2%")
+            click_to_product_rate = str(row.get(click_to_product_rate_col, '')).strip() if click_to_product_rate_col else ''
+            
+            # Parse click to order rate (as text percentage like "3.1%")
+            click_to_order_rate = str(row.get(click_to_order_rate_col, '')).strip() if click_to_order_rate_col else ''
+            
+            batch_data.append((item_name, item_id, revenue, clicks, file_name, session_name, total_orders, items_sold, add_to_cart, click_to_product_rate, click_to_order_rate))
         
+        # Batch insert for much faster performance
+        if batch_data:
+            insert_sql = '''
+                INSERT INTO raw_session_data (item_name, item_id, revenue, clicks, file_name, session_name, total_orders, items_sold, add_to_cart, click_to_product_rate, click_to_order_rate)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            '''
+            psycopg2.extras.execute_batch(cursor, insert_sql, batch_data, page_size=500)
+        
+        count = len(batch_data)
         conn.commit()
         conn.close()
         
@@ -2062,7 +3323,7 @@ def api_item_analytics(item_id):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     
     cursor.execute('''
-        SELECT item_name, revenue, clicks, file_name, session_name
+        SELECT item_name, revenue, clicks, file_name, session_name, total_orders, items_sold, add_to_cart, click_to_product_rate, click_to_order_rate
         FROM raw_session_data
         WHERE item_id = %s
     ''', (item_id,))
@@ -2103,7 +3364,12 @@ def api_item_analytics(item_id):
             'session': row.get('session_name') or 'N/A',
             'file': row.get('file_name') or 'N/A',
             'revenue': row.get('revenue') or 0,
-            'clicks': row.get('clicks') or 0
+            'clicks': row.get('clicks') or 0,
+            'total_orders': row.get('total_orders') or 0,
+            'items_sold': row.get('items_sold') or 0,
+            'add_to_cart': row.get('add_to_cart') or 0,
+            'click_to_product_rate': row.get('click_to_product_rate') or '',
+            'click_to_order_rate': row.get('click_to_order_rate') or ''
         })
         total_revenue += row.get('revenue') or 0
         total_clicks += row.get('clicks') or 0

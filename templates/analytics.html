@@ -4,136 +4,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Item Analytics - BeyondK Network</title>
-    <link rel="icon" type="image/x-icon" href="/static/logo.ico">
+    <title>Data Import & Analytics - BeyondK Network</title>
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard-all.css">
     <style>
-        :root {
-            --bg-primary: #f8fafc;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f1f5f9;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --accent: #3b82f6;
-            --accent-light: #eff6ff;
-            --success: #10b981;
-            --success-light: #ecfdf5;
-            --warning: #f59e0b;
-            --warning-light: #fffbeb;
-            --border: #e2e8f0;
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
-
-        .app-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 64px;
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 1rem 0;
-            position: fixed;
-            height: 100vh;
-            z-index: 50;
-        }
-
-        .sidebar-logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Import Section Styles */
+        .import-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 2rem;
             margin-bottom: 2rem;
-            cursor: pointer;
-            overflow: hidden;
+            color: white;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
         }
 
-        .sidebar-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .sidebar-nav {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            flex: 1;
-            width: 100%;
-            padding: 0 12px;
-        }
-
-        .nav-item {
-            width: 40px;
-            height: 40px;
+        .import-section h2 {
             display: flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-
-        .nav-item:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .nav-item.active {
-            background: var(--accent-light);
-            color: var(--accent);
-        }
-
-        .main-content {
-            flex: 1;
-            margin-left: 64px;
-            padding: 1.5rem 2rem;
-        }
-
-        .page-header {
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 600;
             margin-bottom: 1.5rem;
         }
 
-        .page-header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
+        .import-section h2 svg {
+            width: 24px;
+            height: 24px;
         }
 
-        .page-header p {
-            color: var(--text-secondary);
+        .import-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .import-url-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .import-url-group input {
+            flex: 1;
+            padding: 0.875rem 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 0.9375rem;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
+        }
+
+        .import-url-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .import-url-group input:focus {
+            outline: none;
+            border-color: white;
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-load {
+            padding: 0.875rem 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-load:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-load:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .import-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .sheet-select-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .sheet-select-group label {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .sheet-select-group select {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 0.9375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sheet-select-group select:focus {
+            outline: none;
+            border-color: white;
+        }
+
+        .sheet-select-group select option {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-import {
+            padding: 0.875rem 2rem;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9375rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-import:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn-import:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .import-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            margin-top: 1rem;
             font-size: 0.875rem;
         }
 
+        .import-status.success {
+            background: rgba(16, 185, 129, 0.3);
+        }
+
+        .import-status.error {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spinner-white {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Analytics Search Section */
         .search-section {
             background: var(--bg-secondary);
             border-radius: 12px;
             padding: 1.5rem;
             border: 1px solid var(--border);
             margin-bottom: 1.5rem;
+        }
+
+        .search-section h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
         }
 
         .search-form {
@@ -151,6 +232,7 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             font-size: 0.875rem;
+            color: var(--text-secondary);
         }
 
         .form-group input {
@@ -159,29 +241,27 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             font-size: 1rem;
+            transition: all 0.2s;
         }
 
         .form-group input:focus {
             outline: none;
             border-color: var(--accent);
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            border: none;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.875rem;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .btn-primary {
             background: var(--accent);
             color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
         }
 
         .btn-primary:hover {
@@ -189,69 +269,8 @@
         }
 
         .btn-primary:disabled {
-            background: var(--text-muted);
+            opacity: 0.6;
             cursor: not-allowed;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-card {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 1.25rem;
-            border: 1px solid var(--border);
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.8125rem;
-            color: var(--text-secondary);
-        }
-
-        .stat-value.green {
-            color: var(--success);
-        }
-
-        .stat-value.blue {
-            color: var(--accent);
-        }
-
-        .charts-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .chart-card {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 1.25rem;
-            border: 1px solid var(--border);
-        }
-
-        .chart-header {
-            margin-bottom: 1rem;
-        }
-
-        .chart-title {
-            font-size: 0.9375rem;
-            font-weight: 600;
-        }
-
-        .chart-container {
-            height: 300px;
-            position: relative;
         }
 
         .item-info {
@@ -270,7 +289,6 @@
             font-size: 1.125rem;
             font-weight: 600;
             color: var(--accent);
-            margin-bottom: 0.25rem;
         }
 
         .item-id {
@@ -289,44 +307,93 @@
             width: 64px;
             height: 64px;
             margin-bottom: 1rem;
+            opacity: 0.5;
         }
 
-        .table-section {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            overflow: hidden;
+        .empty-state p {
+            font-size: 1rem;
         }
 
-        .table-header {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
+        /* Stat value colors */
+        .stat-value.green {
+            color: var(--success);
         }
 
-        table {
+        .stat-value.blue {
+            color: var(--accent);
+        }
+
+        /* Table column widths - equal spacing for all columns */
+        .table-section table {
+            table-layout: fixed;
             width: 100%;
-            border-collapse: collapse;
         }
 
-        th,
-        td {
-            padding: 0.75rem 1rem;
+        .table-section th,
+        .table-section td {
+            padding: 1rem 0.75rem;
+            text-align: center;
+            width: 16.66%;
+            /* Equal width for all 6 columns */
+        }
+
+        /* First column (Phiên) - left aligned */
+        .table-section th:first-child,
+        .table-section td:first-child {
             text-align: left;
-            font-size: 0.875rem;
+            padding-left: 2rem;
         }
 
-        th {
-            background: var(--bg-tertiary);
-            font-weight: 600;
-            color: var(--text-secondary);
+        /* All other columns - CENTER aligned */
+        .table-section th:not(:first-child),
+        .table-section td:not(:first-child) {
+            text-align: center;
+            padding-right: 0 1.25rem;
         }
 
-        td {
-            border-bottom: 1px solid var(--border);
+        /* Last sync info */
+        .last-sync-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            color: rgba(255, 255, 255, 0.8);
         }
 
-        @media (max-width: 1024px) {
+        /* Responsive */
+        @media (max-width: 768px) {
+            .import-section {
+                padding: 1.25rem;
+            }
+
+            .import-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .import-url-group {
+                flex-direction: column;
+            }
+
+            .import-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .sheet-select-group {
+                min-width: auto;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn-import {
+                justify-content: center;
+            }
+
+            .search-form {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -334,21 +401,87 @@
             .charts-section {
                 grid-template-columns: 1fr;
             }
+
+            /* Mobile table adjustments */
+            .table-section {
+                overflow-x: auto;
+            }
+
+            .table-section table {
+                min-width: 800px;
+                /* Prevent table from being too cramped */
+            }
+
+            .table-section th,
+            .table-section td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.875rem;
+            }
+
+            .table-section th:first-child,
+            .table-section td:first-child {
+                padding-left: 1rem;
+            }
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .empty-state {
+                padding: 2rem 1rem;
+            }
+
+            .table-section table {
+                min-width: 900px;
+                /* Wider for better readability on small screens */
+            }
+
+            .table-section th,
+            .table-section td {
+                font-size: 0.8125rem;
+                padding: 0.625rem 0.375rem;
             }
         }
     </style>
 </head>
+<script>
+    function toggleMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('show');
+    }
+
+    function closeMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('show');
+    }
+</script>
 
 <body>
+    <!-- Mobile Header -->
+    <div class="mobile-header" id="mobileHeader">
+        <button class="hamburger-btn" onclick="toggleMobileMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
+        <span class="mobile-header-title">BeyondK Dashboard</span>
+    </div>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
     <div class="app-container">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
-                <img src="/static/logo.ico" alt="BeyondK">
+                <img src="/static/BK_logo.ico" alt="BeyondK">
+                <span class="sidebar-logo-text">BeyondK Network</span>
             </div>
             <nav class="sidebar-nav">
                 <a href="/admin" class="nav-item" title="Dashboard">
@@ -358,6 +491,7 @@
                         <rect x="14" y="14" width="7" height="7" />
                         <rect x="3" y="14" width="7" height="7" />
                     </svg>
+                    <span class="nav-text">Dashboard</span>
                 </a>
                 <a href="/admin/analytics" class="nav-item active" title="Analytics">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -365,14 +499,17 @@
                         <line x1="12" y1="20" x2="12" y2="4" />
                         <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
+                    <span class="nav-text">Analytics</span>
                 </a>
                 <a href="/admin/history" class="nav-item" title="History">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10" />
                         <polyline points="12 6 12 12 16 14" />
                     </svg>
+                    <span class="nav-text">History</span>
                 </a>
             </nav>
+            {% if session.get('user') and session.get('user').get('role') == 'bod' %}
             <a href="/admin/setting" class="nav-item" title="Settings">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3" />
@@ -380,15 +517,85 @@
                         d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
             </a>
+            {% endif %}
         </aside>
 
         <main class="main-content">
             <header class="page-header">
-                <h1>Item Analytics</h1>
-                <p>Phân tích chi tiết doanh thu và clicks theo từng phiên live</p>
+                <div class="page-title-section">
+                    <h1>📊 Data Import & Analytics</h1>
+                    <p>Import dữ liệu từ Google Sheets và phân tích chi tiết theo Item ID</p>
+                </div>
             </header>
 
+            <!-- Import Section -->
+            <div class="import-section">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Import Data từ Google Sheets
+                </h2>
+
+                <div class="import-grid">
+                    <div class="import-url-group">
+                        <input type="text" id="sheetUrl" placeholder="Dán link Google Sheet vào đây...">
+                        <button class="btn-load" onclick="loadSheets()" id="btnLoadSheets">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                                <path d="M21 3v5h-5" />
+                            </svg>
+                            Load Sheets
+                        </button>
+                    </div>
+                </div>
+
+                <div class="import-controls">
+                    <div class="sheet-select-group">
+                        <label for="sheetSelect">Chọn Sheet:</label>
+                        <select id="sheetSelect" disabled>
+                            <option value="">-- Nhập URL và Load Sheets trước --</option>
+                        </select>
+                    </div>
+                    <button class="btn-import" onclick="importData()" id="btnImport" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Import Data
+                    </button>
+                </div>
+
+                <div class="import-status" id="importStatus" style="display: none;">
+                    <div class="status-icon" id="statusIcon">
+                        <div class="spinner-white"></div>
+                    </div>
+                    <span id="statusText">Đang xử lý...</span>
+                </div>
+
+                <div class="last-sync-info" id="lastSyncInfo" style="margin-top: 1rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span id="lastSyncTime">Chưa có dữ liệu import</span>
+                </div>
+            </div>
+
+            <!-- Analytics Search Section -->
             <div class="search-section">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Tra cứu Item Analytics
+                </h3>
                 <div class="search-form">
                     <div class="form-group">
                         <label for="itemId">Nhập Item ID</label>
@@ -417,33 +624,6 @@
                         <div class="stat-value green" id="totalRevenue">--</div>
                         <div class="stat-label">Tổng doanh thu</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value blue" id="totalClicks">--</div>
-                        <div class="stat-label">Tổng clicks</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="sessionCount">--</div>
-                        <div class="stat-label">Số phiên live</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="avgRevenue">--</div>
-                        <div class="stat-label">Doanh thu TB/phiên</div>
-                    </div>
-                </div>
-
-                <div class="charts-section">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3 class="chart-title">Doanh thu theo phiên</h3>
-                        </div>
-                        <div class="chart-container"><canvas id="revenueChart"></canvas></div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3 class="chart-title">Clicks theo phiên</h3>
-                        </div>
-                        <div class="chart-container"><canvas id="clicksChart"></canvas></div>
-                    </div>
                 </div>
 
                 <div class="table-section">
@@ -452,9 +632,13 @@
                         <thead>
                             <tr>
                                 <th>Phiên</th>
-                                <th>File</th>
-                                <th>Doanh thu</th>
                                 <th>Clicks</th>
+                                <th>Tỷ lệ click vào sản phẩm</th>
+                                <th>Tổng đơn hàng</th>
+                                <th>Các mặt hàng được bán</th>
+                                <th>Doanh thu</th>
+                                <th>Tỷ lệ click để đặt hàng</th>
+                                <th>Thêm vào giỏ hàng</th>
                             </tr>
                         </thead>
                         <tbody id="sessionTable"></tbody>
@@ -467,14 +651,143 @@
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                <p>Nhập Item ID để xem phân tích chi tiết</p>
+                <p>Import dữ liệu và nhập Item ID để xem phân tích chi tiết</p>
             </div>
         </main>
     </div>
 
     <script>
-        let revenueChart = null;
-        let clicksChart = null;
+        let spreadsheetTitle = '';
+
+        // ============== Import Functions ==============
+
+        async function loadSheets() {
+            const url = document.getElementById('sheetUrl').value.trim();
+            if (!url) {
+                showStatus('Vui lòng nhập URL Google Sheet', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnLoadSheets');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner-white"></div> Đang load...';
+
+            try {
+                const response = await fetch('/api/get-sheet-names', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ spreadsheet_url: url })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    spreadsheetTitle = result.spreadsheet_title;
+                    const select = document.getElementById('sheetSelect');
+                    select.innerHTML = '<option value="">-- Chọn sheet --</option>';
+
+                    result.sheets.forEach(sheet => {
+                        const option = document.createElement('option');
+                        option.value = sheet;
+                        option.textContent = sheet;
+                        select.appendChild(option);
+                    });
+
+                    select.disabled = false;
+                    document.getElementById('btnImport').disabled = false;
+                    showStatus(`Đã load ${result.sheets.length} sheets từ "${spreadsheetTitle}"`, 'success');
+                } else {
+                    showStatus(result.error || 'Không thể load sheets', 'error');
+                }
+            } catch (error) {
+                showStatus('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                </svg> Load Sheets`;
+            }
+        }
+
+        async function importData() {
+            const url = document.getElementById('sheetUrl').value.trim();
+            const sheetName = document.getElementById('sheetSelect').value;
+
+            if (!url || !sheetName) {
+                showStatus('Vui lòng chọn sheet để import', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnImport');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner-white"></div> Đang import...';
+            showStatus('Đang xóa dữ liệu cũ và import dữ liệu mới...', 'loading');
+
+            try {
+                const response = await fetch('/api/sync-raw-monthly', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        spreadsheet_url: url,
+                        sheet_name: sheetName
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(`✅ Import thành công ${result.count.toLocaleString()} records từ sheet "${sheetName}"`, 'success');
+                    updateLastSyncTime();
+                } else {
+                    showStatus('❌ Lỗi: ' + (result.error || 'Không thể import'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg> Import Data`;
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('importStatus');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+
+            statusDiv.style.display = 'flex';
+            statusDiv.className = 'import-status';
+
+            if (type === 'loading') {
+                statusIcon.innerHTML = '<div class="spinner-white"></div>';
+            } else if (type === 'success') {
+                statusDiv.classList.add('success');
+                statusIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>`;
+            } else if (type === 'error') {
+                statusDiv.classList.add('error');
+                statusIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>`;
+            }
+
+            statusText.textContent = message;
+        }
+
+        function updateLastSyncTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('vi-VN');
+            document.getElementById('lastSyncTime').textContent = `Lần import cuối: ${timeStr}`;
+        }
+
+        // ============== Analytics Functions ==============
 
         async function searchItem() {
             const itemId = document.getElementById('itemId').value.trim();
@@ -513,11 +826,7 @@
             document.getElementById('itemIdDisplay').textContent = data.item_id;
 
             document.getElementById('totalRevenue').textContent = formatCurrency(data.total_revenue);
-            document.getElementById('totalClicks').textContent = data.total_clicks.toLocaleString();
-            document.getElementById('sessionCount').textContent = data.session_count;
-            document.getElementById('avgRevenue').textContent = formatCurrency(data.total_revenue / data.session_count);
 
-            renderCharts(data.sessions);
             renderTable(data.sessions);
         }
 
@@ -528,63 +837,24 @@
             return value.toLocaleString() + ' đ';
         }
 
-        function renderCharts(sessions) {
-            const labels = sessions.map(s => s.session);
-            const revenues = sessions.map(s => s.revenue);
-            const clicks = sessions.map(s => s.clicks);
-
-            const ctx1 = document.getElementById('revenueChart').getContext('2d');
-            if (revenueChart) revenueChart.destroy();
-            revenueChart = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Doanh thu',
-                        data: revenues,
-                        backgroundColor: '#10b981',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { ticks: { callback: v => v >= 1000000 ? (v / 1000000) + 'M' : v.toLocaleString() } }
-                    }
-                }
-            });
-
-            const ctx2 = document.getElementById('clicksChart').getContext('2d');
-            if (clicksChart) clicksChart.destroy();
-            clicksChart = new Chart(ctx2, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Clicks',
-                        data: clicks,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
-        }
-
         function renderTable(sessions) {
             let html = '';
             sessions.forEach(s => {
-                html += '<tr><td>' + s.session + '</td><td>' + s.file + '</td><td>' + s.revenue.toLocaleString() + ' đ</td><td>' + s.clicks + '</td></tr>';
+                html += '<tr>' +
+                    '<td>' + s.session + '</td>' +
+                    '<td>' + (s.clicks || 0) + '</td>' +
+                    '<td>' + (s.click_to_product_rate || '-') + '</td>' +
+                    '<td>' + (s.total_orders || 0) + '</td>' +
+                    '<td>' + (s.items_sold || 0) + '</td>' +
+                    '<td>' + s.revenue.toLocaleString() + ' đ</td>' +
+                    '<td>' + (s.click_to_order_rate || '-') + '</td>' +
+                    '<td>' + (s.add_to_cart || 0) + '</td>' +
+                    '</tr>';
             });
             document.getElementById('sessionTable').innerHTML = html;
         }
     </script>
+
 </body>
 
 </html>

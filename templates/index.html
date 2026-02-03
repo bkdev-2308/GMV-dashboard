@@ -5,16 +5,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeyondK Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/css/dashboard-all.css">
+    <style>
+        /* ========== PRODUCT IMAGE STYLES ========== */
+        .product-image-cell {
+            padding: 0.5rem;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        /* Product cell layout */
+        .product-cell-flex {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Product image wrapper */
+        .product-image-wrapper {
+            flex-shrink: 0;
+            width: 60px;
+            height: 60px;
+        }
+
+        .product-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            background: #fafafa;
+            cursor: zoom-in;
+        }
+
+        /* HOVER IMAGE → ZOOM TO CENTER */
+        .product-image-wrapper:hover .product-thumbnail {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            z-index: 10000;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: white;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            cursor: zoom-out;
+        }
+
+        /* Product info */
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .product-name-wrapper {
+            position: relative;
+        }
+
+        .product-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: help;
+        }
+
+        /* TOOLTIP ĐƠN GIẢN - chỉ hiện tên đầy đủ */
+        .product-tooltip {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 100%;
+            margin-top: 0.25rem;
+            background: #2d3748;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            z-index: 1000;
+            max-width: 400px;
+            white-space: normal;
+            word-wrap: break-word;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+        }
+
+        .product-name-wrapper:hover .product-tooltip {
+            display: block;
+        }
+    </style>
 </head>
 
 <body>
+    <!-- Mobile Header -->
+    <div class="mobile-header" id="mobileHeader">
+        <button class="hamburger-btn" onclick="toggleMobileMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+        </button>
+        <span class="mobile-header-title">BeyondK Dashboard</span>
+    </div>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
+
     <div class="app-container">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo" onclick="toggleSidebar()">
-                <img src="/static/logo.ico" alt="BeyondK">
+                <img src="/static/BK_logo.ico" alt="BeyondK">
                 <span class="sidebar-logo-text">BeyondK Network</span>
             </div>
             <nav class="sidebar-nav">
@@ -43,6 +149,8 @@
                     <span class="nav-text">History</span>
                 </a>
             </nav>
+            {% if (session.get('is_admin') and not session.get('user')) or (session.get('user') and
+            session.get('user').get('role') == 'bod') %}
             <a href="/admin/setting" class="nav-item" title="Settings">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3" />
@@ -51,6 +159,7 @@
                 </svg>
                 <span class="nav-text">Settings</span>
             </a>
+            {% endif %}
         </aside>
 
         <main class="main-content" id="mainContent">
@@ -68,6 +177,13 @@
                             <polyline points="23 4 23 10 17 10" />
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                         </svg>Làm mới</button>
+                    <a href="/logout" class="btn" style="background: #ef4444; color: white; text-decoration: none;"><svg
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>Đăng xuất</a>
                 </div>
             </header>
             <!-- Session Filter Card -->
@@ -82,7 +198,6 @@
                         Phiên Live
                     </label>
                     <select id="sessionFilter" onchange="onSessionChange()">
-                        <option value="">-- Tất cả phiên --</option>
                     </select>
                 </div>
 
@@ -169,6 +284,183 @@
                 </div>
             </div>
 
+            <!-- Overview Metrics Section - Redesigned theo hình -->
+            <div class="overview-section" id="overviewSection"
+                style="margin-bottom: 2rem; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+                <div class="section-header"
+                    style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; margin-bottom: 0;">
+                    <h2 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin: 0;">📊 Overview
+                        Metrics</h2>
+                </div>
+
+                <!-- 3 Big Cards ở trên -->
+                <div id="overviewMetrics"
+                    style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 25%, #f06543 50%, #ff8c42 75%, #ffa600 100%); padding: 2rem 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+                    <!-- Card 1: Người xem tương tác -->
+                    <div
+                        style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                        <div
+                            style="font-size: 0.75rem; color: rgba(255,255,255,0.9); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+                            Người xem tương tác</div>
+                        <div id="metric-engaged-viewers"
+                            style="font-size: 2.5rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Card 2: Tổng bình luận -->
+                    <div
+                        style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                        <div
+                            style="font-size: 0.75rem; color: rgba(255,255,255,0.9); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+                            Tổng bình luận</div>
+                        <div id="metric-comments"
+                            style="font-size: 2.5rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Card 3: Thêm vào giỏ hàng -->
+                    <div
+                        style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                        <div
+                            style="font-size: 0.75rem; color: rgba(255,255,255,0.9); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+                            Thêm vào giỏ hàng</div>
+                        <div id="metric-atc" style="font-size: 2.5rem; font-weight: 700; color: white; line-height: 1;">
+                            -</div>
+                    </div>
+                </div>
+
+                <!-- 12 Small Metrics ở dưới (2 hàng x 6 cột) -->
+                <!-- Hàng 1 -->
+                <div
+                    style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 25%, #f06543 50%, #ff8c42 75%, #ffa600 100%); padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <!-- Tổng lượt xem -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tổng lượt xem</div>
+                        <div id="metric-views"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Số lượt xem TB (hh:mm:ss) -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Số lượt xem trung bình</div>
+                        <div id="metric-avg-view-time"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Tỷ lệ bình luận -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tỷ lệ bình luận</div>
+                        <div id="metric-comments-rate"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- GPM (đ) -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            GPM (đ)</div>
+                        <div id="metric-gpm"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Tổng đơn hàng -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tổng đơn hàng</div>
+                        <div id="metric-orders"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Giá trị đơn hàng trung bình -->
+                    <div style="text-align: center; padding: 0.75rem 0.5rem;">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Giá trị đơn hàng trung bình</div>
+                        <div id="metric-abs"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+                </div>
+
+                <!-- Hàng 2 -->
+                <div
+                    style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 25%, #f06543 50%, #ff8c42 75%, #ffa600 100%); padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <!-- Tổng người xem -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tổng người xem</div>
+                        <div id="metric-viewers"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- PCU -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            PCU</div>
+                        <div id="metric-pcu"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Tỷ lệ click vào sản phẩm (CTR) -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tỷ lệ click vào sản phẩm</div>
+                        <div id="metric-ctr"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Tỷ lệ click để đặt hàng (CO) -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Tỷ lệ click để đặt hàng</div>
+                        <div id="metric-co" style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">
+                            -</div>
+                    </div>
+
+                    <!-- Người mua -->
+                    <div
+                        style="text-align: center; padding: 0.75rem 0.5rem; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Người mua</div>
+                        <div id="metric-buyers"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+
+                    <!-- Các mặt hàng được bán (Sản phẩm đã bán) -->
+                    <div style="text-align: center; padding: 0.75rem 0.5rem;">
+                        <div
+                            style="font-size: 0.65rem; color: rgba(255,255,255,0.85); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; line-height: 1.2;">
+                            Các mặt hàng được bán</div>
+                        <div id="metric-items-sold"
+                            style="font-size: 1.25rem; font-weight: 700; color: white; line-height: 1;">-</div>
+                    </div>
+                </div>
+
+                <div id="overviewNoData"
+                    style="display: none; text-align: center; padding: 3rem; background: var(--bg-card);">
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Chưa có dữ liệu overview cho session
+                        này</p>
+                </div>
+            </div>
+
             <div class="charts-section">
                 <div class="chart-card">
                     <div class="chart-header">
@@ -220,18 +512,20 @@
 
                         <div class="shop-filter-wrapper">
                             <input type="text" id="shopIdFilter" class="select-control" placeholder="🔍 Shop ID..."
-                                list="shopIdList" oninput="filterShopIdSuggestions()">
+                                list="shopIdList" oninput="filterShopIdSuggestions()"
+                                onchange="handleShopIdSelection()">
                             <datalist id="shopIdList"></datalist>
                         </div>
                         <div class="search-input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
                                 <circle cx="11" cy="11" r="8" />
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg><input type="text" id="searchInput" placeholder="Tìm kiếm..."
+                            </svg><input type="text" id="searchInput" placeholder="Tìm kiếm tên sản phẩm..."
                                 onkeyup="debounceSearch()">
                         </div>
                     </div>
                 </div>
+
                 <div class="table-wrapper" id="tableWrapper">
                     <div class="loading">
                         <div class="spinner"></div>
@@ -271,6 +565,7 @@
         let perPage = 10;
         let totalPages = 1;
         let shopIds = [];
+        let shopInfo = [];  // Array of {shop_id, brand_name} for dropdown with brand names
         let searchTimeout = null;
         let revenueChart = null;
         let categoryChart = null;
@@ -306,12 +601,13 @@
             }
         }
 
-        function setLocalCache(data, shopIds, stats, lastSync) {
+        function setLocalCache(data, shopIds, stats, lastSync, shopInfoArr) {
             try {
                 localStorage.setItem(getCacheKey(), JSON.stringify({
                     version: CACHE_VERSION,
                     data: data,
                     shopIds: shopIds,
+                    shopInfo: shopInfoArr || [],
                     stats: stats,
                     lastSync: lastSync,
                     timestamp: Date.now()
@@ -391,13 +687,22 @@
                 if (localCache) {
                     fullData = localCache.data;
                     shopIds = localCache.shopIds || [];
+                    shopInfo = localCache.shopInfo || [];
                     dataLoaded = true;
 
-                    // Populate shop filter
-                    if (shopIds.length > 0) {
-                        const datalist = document.getElementById('shopIdList');
-                        datalist.innerHTML = '';
-                        shopIds.forEach(id => {
+                    // Populate shop filter with brand names if shopInfo available (limit to 10)
+                    const datalist = document.getElementById('shopIdList');
+                    datalist.innerHTML = '';
+                    if (shopInfo && shopInfo.length > 0) {
+                        shopInfo.slice(0, 10).forEach(info => {
+                            const opt = document.createElement('option');
+                            const displayText = info.brand_name ? `${info.brand_name} - ${info.shop_id}` : info.shop_id;
+                            opt.value = displayText;
+                            opt.setAttribute('data-shop-id', info.shop_id);
+                            datalist.appendChild(opt);
+                        });
+                    } else if (shopIds.length > 0) {
+                        shopIds.slice(0, 10).forEach(id => {
                             const opt = document.createElement('option');
                             opt.value = id;
                             datalist.appendChild(opt);
@@ -431,12 +736,28 @@
                     dataLoaded = true;
                     console.log('[Server] Loaded ' + fullData.length + ' products (from_cache: ' + result.from_cache + ')');
 
-                    // Populate shop_id filter datalist
-                    if (result.shop_ids && result.shop_ids.length > 0) {
+                    // Populate shop_id filter datalist with brand names (limit to 10 initial suggestions)
+                    if (result.shop_info && result.shop_info.length > 0) {
+                        shopInfo = result.shop_info;
+                        shopIds = result.shop_ids || shopInfo.map(s => s.shop_id);
+                        const datalist = document.getElementById('shopIdList');
+                        datalist.innerHTML = '';
+                        // Only show first 10 items initially
+                        shopInfo.slice(0, 10).forEach(info => {
+                            const opt = document.createElement('option');
+                            // Display "brand_name - shop_id" but value is shop_id
+                            const displayText = info.brand_name ? `${info.brand_name} - ${info.shop_id}` : info.shop_id;
+                            opt.value = displayText;  // User sees this in dropdown
+                            opt.setAttribute('data-shop-id', info.shop_id);  // Store actual shop_id
+                            datalist.appendChild(opt);
+                        });
+                    } else if (result.shop_ids && result.shop_ids.length > 0) {
+                        // Fallback to old format
                         shopIds = result.shop_ids;
                         const datalist = document.getElementById('shopIdList');
                         datalist.innerHTML = '';
-                        shopIds.forEach(id => {
+                        // Only show first 10 items initially
+                        shopIds.slice(0, 10).forEach(id => {
                             const opt = document.createElement('option');
                             opt.value = id;
                             datalist.appendChild(opt);
@@ -447,7 +768,7 @@
 
                     // Lưu vào localStorage cache (chỉ khi không có session filter)
                     if (!currentSessionId) {
-                        setLocalCache(result.data, result.shop_ids, result.stats, result.last_sync);
+                        setLocalCache(result.data, result.shop_ids, result.stats, result.last_sync, result.shop_info);
                     }
                     hideSkeletonLoading();
                     applyFiltersAndSort();
@@ -463,24 +784,57 @@
         function filterShopIdSuggestions() {
             const input = document.getElementById('shopIdFilter');
             const datalist = document.getElementById('shopIdList');
-            const value = input.value.trim();
+            const value = input.value.trim().toLowerCase();
 
             // Clear datalist first
             datalist.innerHTML = '';
 
             // Only show suggestions if user typed at least 1 character
-            if (value.length >= 1 && shopIds.length > 0) {
-                // Filter and limit to 5 suggestions
-                const filtered = shopIds.filter(id => id.includes(value)).slice(0, 5);
-                filtered.forEach(id => {
-                    const opt = document.createElement('option');
-                    opt.value = id;
-                    datalist.appendChild(opt);
-                });
-            }
+            if (value.length >= 1) {
+                // Use shopInfo if available, otherwise fall back to shopIds
+                if (shopInfo && shopInfo.length > 0) {
+                    // Filter by brand_name or shop_id and limit to 10 suggestions
+                    const filtered = shopInfo.filter(info => {
+                        const brandMatch = info.brand_name && info.brand_name.toLowerCase().includes(value);
+                        const shopIdMatch = info.shop_id && info.shop_id.includes(value);
+                        return brandMatch || shopIdMatch;
+                    }).slice(0, 10);
 
-            // Also trigger the filter
-            debounceShopFilter();
+                    filtered.forEach(info => {
+                        const opt = document.createElement('option');
+                        // Display "brand_name - shop_id"
+                        const displayText = info.brand_name ? `${info.brand_name} - ${info.shop_id}` : info.shop_id;
+                        opt.value = displayText;
+                        opt.setAttribute('data-shop-id', info.shop_id);
+                        datalist.appendChild(opt);
+                    });
+                } else if (shopIds && shopIds.length > 0) {
+                    // Fallback: only shop_ids
+                    const filtered = shopIds.filter(id => id.includes(value)).slice(0, 10);
+                    filtered.forEach(id => {
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        datalist.appendChild(opt);
+                    });
+                }
+            }
+        }
+
+        // Handle Shop ID selection - only filter when user selects from datalist suggestions
+        function handleShopIdSelection() {
+            const input = document.getElementById('shopIdFilter');
+            const value = input.value.trim();
+
+            // When user selects from datalist, the value will be populated
+            // Apply filter immediately without debounce for instant response
+            if (value) {
+                currentPage = 1;  // Reset to page 1
+                applyFiltersAndSort();
+            } else {
+                // When filter is cleared, reset to show all data
+                currentPage = 1;
+                applyFiltersAndSort();
+            }
         }
         // Change per page from bottom dropdown
         function changePerPageBottom() {
@@ -507,9 +861,21 @@
                 return;
             }
 
-            const shopId = document.getElementById('shopIdFilter').value.trim();
+            const shopFilterValue = document.getElementById('shopIdFilter').value.trim();
             const search = document.getElementById('searchInput').value.trim().toLowerCase();
             const linkFilter = document.getElementById('linkFilter').value;
+
+            // Extract shop_id from filter value (might be "brand - shop_id" format)
+            let shopId = '';
+            if (shopFilterValue) {
+                if (shopFilterValue.includes(' - ')) {
+                    // Format: "brand_name - shop_id"
+                    shopId = shopFilterValue.split(' - ').pop();
+                } else {
+                    // Just shop_id
+                    shopId = shopFilterValue;
+                }
+            }
 
             // Filter data
             filteredData = fullData.filter(item => {
@@ -982,11 +1348,23 @@
             const perPageEl = document.getElementById('perPageSelect');
             const perPageVal = perPageEl ? parseInt(perPageEl.value) || perPage : perPage;
             const shopFilterEl = document.getElementById('shopIdFilter');
-            const shopFilter = shopFilterEl ? shopFilterEl.value.trim() : '';
+            const shopFilterValue = shopFilterEl ? shopFilterEl.value.trim() : '';
             const searchEl = document.getElementById('searchInput');
             const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
             const linkFilterEl = document.getElementById('linkFilter');
             const linkFilter = linkFilterEl ? linkFilterEl.value : 'all';
+
+            // Extract shop_id from filter value (might be "brand - shop_id" format)
+            let shopFilter = '';
+            if (shopFilterValue) {
+                if (shopFilterValue.includes(' - ')) {
+                    // Format: "brand_name - shop_id"
+                    shopFilter = shopFilterValue.split(' - ').pop();
+                } else {
+                    // Just shop_id
+                    shopFilter = shopFilterValue;
+                }
+            }
 
             // Filter data (no sort - data already sorted from server)
             filteredData = fullData.filter(item => {
@@ -1266,7 +1644,7 @@
             const ordersArrow = currentSort.column === 'orders' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
             const itemsSoldArrow = currentSort.column === 'items_sold' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
             const nmvArrow = currentSort.column === 'confirmed_revenue' ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲') : '';
-            let html = '<table><thead><tr><th style="width:50px">#</th><th>Sản phẩm</th><th class="sortable" style="width:110px; cursor:pointer" data-sort="revenue">GMV' + revenueArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="clicks">Clicks' + clicksArrow + '</th><th class="sortable" style="width:45px; cursor:pointer" data-sort="add_to_cart">ATC' + atcArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="orders">Đơn hàng' + ordersArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="items_sold">Đã bán' + itemsSoldArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="confirmed_revenue">NMV' + nmvArrow + '</th><th style="width:70px">Link</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>Sản phẩm</th><th class="sortable" style="width:110px; cursor:pointer" data-sort="revenue">GMV' + revenueArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="clicks">Clicks' + clicksArrow + '</th><th class="sortable" style="width:45px; cursor:pointer" data-sort="add_to_cart">ATC' + atcArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="orders">Đơn hàng' + ordersArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="items_sold">Đã bán' + itemsSoldArrow + '</th><th class="sortable" style="width:55px; cursor:pointer" data-sort="confirmed_revenue">NMV' + nmvArrow + '</th><th style="width:70px">Link</th></tr></thead><tbody>';
             data.forEach((item, index) => {
                 const rank = startIndex + index + 1;
                 let rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
@@ -1282,9 +1660,24 @@
                 if (item.link_sp) {
                     linkHtml = '<div class="link-actions"><button class="icon-btn copy" onclick="copyLink(\'' + item.link_sp + '\', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a href="' + item.link_sp + '" target="_blank" class="icon-btn link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>';
                 }
-                html += '<tr><td><span class="rank-badge ' + rankClass + '">' + rank + '</span></td>';
-                html += '<td class="product-cell"><div class="product-name-wrapper"><div class="product-name">' + name + '</div><div class="product-id">' + item.item_id + '</div></div>';
-                html += '<div class="product-tooltip"><div class="tooltip-name">' + name + '</div></div></td>';
+                // Generate image URL from coverImage
+                const coverImage = item.cover_image || '';
+                const imageUrl = coverImage ? `https://mms.img.susercontent.com/${coverImage}` : '';
+
+                // Image + Name trong 1 cell
+                html += '<tr><td class="product-cell">';
+                html += '<div class="product-cell-flex">';
+                if (imageUrl) {
+                    html += '<div class="product-image-wrapper">';
+                    html += '<img src="' + imageUrl + '" alt="Product" class="product-thumbnail" crossorigin="anonymous" loading="lazy" />';
+                    html += '</div>';
+                }
+                html += '<div class="product-info">';
+                html += '<div class="product-name-wrapper"><div class="product-name">' + name + '</div><div class="product-id">' + item.item_id + '</div></div>';
+                html += '<div class="product-tooltip"><div class="tooltip-name">' + name + '</div></div>';
+                html += '</div>';
+                html += '</div>';
+                html += '</td>';
                 html += '<td class="revenue-cell">' + revenue + '</td><td class="clicks-cell">' + clicks.toLocaleString() + '</td><td class="atc-cell">' + addToCart.toLocaleString() + '</td><td class="orders-cell">' + orders + '</td><td class="items-sold-cell">' + itemsSold.toLocaleString() + '</td><td class="nmv-cell">' + (nmv > 0 ? nmv.toLocaleString() + ' đ' : '-') + '</td><td>' + linkHtml + '</td></tr>';
             });
             html += '</tbody></table>';
@@ -1498,10 +1891,51 @@
 
             showToast('Đã lọc Top 10 Gap cao nhất!');
         }
+        async function loadSessions() {
+            try {
+                const resp = await fetch('/api/sessions');
+                const data = await resp.json();
+                if (data.success && data.sessions) {
+                    const select = document.getElementById('sessionFilter');
+                    if (!select) return;
+                    select.innerHTML = ''; // Clear cũ
 
+                    // Tạo options
+                    data.sessions.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.session_id;
+                        opt.textContent = s.session_title || `Session ${s.session_id}`;
+                        select.appendChild(opt);
+                    });
+                    // ✅ Tự động chọn session mới nhất VÀ set currentSessionId
+                    if (data.sessions.length > 0) {
+                        select.value = data.sessions[0].session_id;
+                        currentSessionId = data.sessions[0].session_id;
+                        console.log('[Sessions] Auto-selected session:', currentSessionId);
+                    }
+                }
+            } catch (err) {
+                console.error('[Sessions] Error:', err);
+            } finally {
+                // ✅ Load data VÀ overview metrics SONG SONG (parallel)
+                console.log('[Sessions] Loading GMV data and Overview metrics in parallel...');
+                loadData();
+                loadOverviewMetrics(); // Load cùng lúc, không chờ loadData() xong
+            }
+        }
+        function onSessionChange() {
+            // Cập nhật currentSessionId từ dropdown
+            const sessionSelect = document.getElementById('sessionFilter');
+            currentSessionId = sessionSelect ? sessionSelect.value : '';
+            console.log('[Session] Changed to:', currentSessionId || 'ALL');
+            loadData(true); // Reload data khi chọn session khác
+            loadOverviewMetrics(); // Reload overview metrics
+        }
         function refreshData() {
             document.getElementById('tableWrapper').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            // Load GMV data và Overview metrics SONG SONG
             loadData(true);  // Force refresh from server
+            loadOverviewMetrics(); // Refresh overview cùng lúc
         }
 
         // Event delegation for sortable headers
@@ -1519,7 +1953,150 @@
             }
         });
 
-        loadData();  // Initial load
+        // ============== Overview Metrics Functions ==============
+
+        function loadOverviewSessions() {
+            console.log('[Overview] Loading sessions...');
+            fetch('/api/overview/sessions')
+                .then(r => r.json())
+                .then(data => {
+                    console.log('[Overview] Sessions response:', data);
+                    if (data.success && data.sessions && data.sessions.length > 0) {
+                        // Use the main session selector (already exists in header)
+                        // Just load metrics for current session
+                        console.log('[Overview] Found sessions, loading metrics for current session');
+                        document.getElementById('overviewSection').style.display = 'block';
+                        loadOverviewMetrics();
+                    } else {
+                        console.log('[Overview] No sessions found');
+                        document.getElementById('overviewSection').style.display = 'block';
+                        document.getElementById('overviewNoData').style.display = 'block';
+                        document.getElementById('overviewMetrics').style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('[Overview] Error loading sessions:', err);
+                    document.getElementById('overviewSection').style.display = 'block';
+                    document.getElementById('overviewNoData').style.display = 'block';
+                    document.getElementById('overviewMetrics').style.display = 'none';
+                });
+        }
+
+        function loadOverviewMetrics() {
+            // Use currentSessionId from main session selector
+            const sessionId = currentSessionId;
+            const startTime = performance.now();
+            console.log('[Overview] Loading metrics for session:', sessionId);
+
+            if (!sessionId) {
+                document.getElementById('overviewMetrics').style.display = 'none';
+                document.getElementById('overviewNoData').style.display = 'block';
+                return;
+            }
+
+            const fetchStart = performance.now();
+            fetch(`/api/overview/live?session_id=${sessionId}`)
+                .then(r => {
+                    const fetchEnd = performance.now();
+                    console.log(`[Overview TIMING] Fetch time: ${(fetchEnd - fetchStart).toFixed(0)}ms`);
+                    return r.json();
+                })
+                .then(data => {
+                    const parseEnd = performance.now();
+                    console.log(`[Overview TIMING] Parse time: ${(parseEnd - fetchStart).toFixed(0)}ms`);
+                    console.log('[Overview] Metrics response:', data);
+
+                    if (data.success && data.data) {
+                        document.getElementById('overviewMetrics').style.display = 'grid';
+                        document.getElementById('overviewNoData').style.display = 'none';
+
+                        const metrics = data.data;
+                        console.log('[Overview] Updating UI with metrics:', metrics);
+
+                        // Helper: Convert (ms/60) to hh:mm:ss
+                        // Backend stores: API_milliseconds / 60
+                        // We need to divide by 1000 to get actual minutes
+                        // Input: 26957 (which is 1617469 ms / 60)
+                        // Output: 00:26:57 (26.957 minutes = 26m 57s)
+                        function msDiv60ToHMS(value) {
+                            if (!value || value === 0) return '00:00:00';
+
+                            // Divide by 1000 to get actual minutes
+                            const minutes = value / 1000;
+
+                            // Convert decimal minutes to total seconds
+                            const totalSeconds = Math.floor(minutes * 60);
+                            const h = Math.floor(totalSeconds / 3600);
+                            const m = Math.floor((totalSeconds % 3600) / 60);
+                            const s = totalSeconds % 60;
+
+                            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                        }
+
+                        // Helper: Convert decimal percentage to readable format
+                        // 0.0066 → 0.7%, 0.12 → 12.0%
+                        function formatPercentage(value) {
+                            if (!value) return '0%';
+                            // If value is string with %, parse it first
+                            if (typeof value === 'string' && value.includes('%')) {
+                                value = parseFloat(value.replace('%', ''));
+                            }
+                            // Convert to percentage (multiply by 100)
+                            const percent = parseFloat(value) * 100;
+                            // Round to 1 decimal place
+                            return percent.toFixed(1) + '%';
+                        }
+
+                        // Update 3 big cards
+                        document.getElementById('metric-engaged-viewers').textContent = formatNumber(metrics.engaged_viewers || 0);
+                        document.getElementById('metric-comments').textContent = formatNumber(metrics.comments || 0);
+                        document.getElementById('metric-atc').textContent = formatNumber(metrics.atc || 0);
+
+                        // Update 12 small metrics
+                        document.getElementById('metric-views').textContent = formatNumber(metrics.views || 0);
+                        document.getElementById('metric-avg-view-time').textContent = msDiv60ToHMS(metrics.avg_view_time || 0); // Convert (ms/60) to hh:mm:ss
+                        document.getElementById('metric-comments-rate').textContent = formatPercentage(metrics.comments_rate); // Convert to %
+                        document.getElementById('metric-gpm').textContent = formatNumber(metrics.gpm || 0);
+                        document.getElementById('metric-orders').textContent = formatNumber(metrics.placed_order || 0);
+                        document.getElementById('metric-abs').textContent = formatNumber(metrics.abs || 0);
+                        document.getElementById('metric-viewers').textContent = formatNumber(metrics.viewers || 0);
+                        document.getElementById('metric-pcu').textContent = formatNumber(metrics.pcu || 0);
+                        document.getElementById('metric-ctr').textContent = formatPercentage(metrics.ctr); // Convert to %
+                        document.getElementById('metric-co').textContent = formatPercentage(metrics.co); // Convert to %
+                        document.getElementById('metric-buyers').textContent = formatNumber(metrics.buyers || 0);
+                        document.getElementById('metric-items-sold').textContent = formatNumber(metrics.placed_items_sold || 0);
+
+                        const totalTime = performance.now() - startTime;
+                        console.log(`[Overview TIMING] Total time: ${totalTime.toFixed(0)}ms (from_cache: ${data.from_cache})`);
+                    } else {
+                        console.log('[Overview] No data or error:', data);
+                        document.getElementById('overviewMetrics').style.display = 'none';
+                        document.getElementById('overviewNoData').style.display = 'block';
+                    }
+                })
+                .catch(err => {
+                    const errorTime = performance.now() - startTime;
+                    console.error(`[Overview] Error after ${errorTime.toFixed(0)}ms:`, err);
+                    document.getElementById('overviewMetrics').style.display = 'none';
+                    document.getElementById('overviewNoData').style.display = 'block';
+                });
+        }
+
+        function formatNumber(num) {
+            if (num === null || num === undefined) return '0';
+            return new Intl.NumberFormat('vi-VN').format(num);
+        }
+
+        // Load overview sessions on page load
+        loadOverviewSessions();
+
+        // Auto-refresh overview metrics every 30 seconds
+        setInterval(() => {
+            if (currentSessionId) {
+                loadOverviewMetrics();
+            }
+        }, 30000);
+
         loadSessions();  // Load session list for filter
         setInterval(() => loadData(true), 1 * 60 * 1000);  // Auto-refresh every 5 min
     </script>
@@ -1536,6 +2113,33 @@
         </div>
     </div>
 
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileMenuOverlay');
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('show');
+            document.body.classList.toggle('menu-open');
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileMenuOverlay');
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('show');
+            document.body.classList.remove('menu-open');
+        }
+
+        // Close menu when clicking a nav item on mobile
+        document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+            item.addEventListener('click', function () {
+                if (window.innerWidth <= 768) {
+                    closeMobileMenu();
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

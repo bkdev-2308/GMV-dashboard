@@ -238,6 +238,56 @@
         .session-mapping-row select {
             width: 120px;
         }
+
+        /* Overview Metrics Styles */
+        .metrics-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .metrics-row {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .metric-value {
+                font-size: 1.25rem;
+            }
+        }
     </style>
 </head>
 
@@ -249,6 +299,9 @@
                 <h1>Cài <span>đặt</span></h1>
             </div>
             <div style="display: flex; gap: 1rem;">
+                <a href="/admin/fix-history" class="btn btn-ghost" style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
+                    🛠️ Sửa Lịch Sử Cũ
+                </a>
                 <a href="/admin" class="btn btn-ghost">← Về Dashboard</a>
                 <a href="/admin/logout" class="btn btn-danger">Đăng xuất</a>
             </div>
@@ -331,11 +384,39 @@
         <div class="card">
             <h2 class="card-title">🔗 Gán Deal List cho Session</h2>
             <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">
-                Chọn Deal List sẽ được sử dụng để map Shop ID cho từng phiên.
+                Chọn sessions để xóa (gmv_history không bị ảnh hưởng).
             </p>
+            <button class="btn btn-danger" onclick="deleteSelectedSessions()" id="deleteSelectedBtn" style="width: 100%; margin-bottom: 1rem;" disabled>
+                🗑️ Xóa sessions đã chọn (0)
+            </button>
             <div id="sessionMappingContainer">
                 <p style="color: var(--text-secondary);">Đang tải sessions...</p>
             </div>
+        </div>
+
+        <!-- User Management Section -->
+        <div class="card">
+            <h2 class="card-title">👥 Quản lý User & Phân quyền</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">
+                Thêm user và gán role. <strong>BOD/Lead</strong> → Admin, <strong>Staff</strong> → Staff Dashboard.
+            </p>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <input type="email" id="newUserEmail" placeholder="email@beyondk.live"
+                    style="flex: 1; min-width: 200px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                <select id="newUserRole"
+                    style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                    <option value="staff">Staff</option>
+                    <option value="lead">Lead</option>
+                    <option value="bod">BOD</option>
+                </select>
+                <button class="btn btn-success" onclick="addUser()">+ Thêm</button>
+            </div>
+
+            <div id="userListContainer" style="overflow-x: auto;">
+                <p style="color: var(--text-secondary);">Đang tải danh sách user...</p>
+            </div>
+            <div id="userResult"></div>
         </div>
     </div>
 
@@ -346,6 +427,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadCacheStatus();
             loadSessionMappings();
+            loadUsers(); // Load users on page load
             if (savedDeallistSheet) {
                 document.getElementById('deallistSheet').innerHTML = `<option value="${savedDeallistSheet}" selected>${savedDeallistSheet}</option>`;
             }
@@ -386,7 +468,11 @@
                     const currentDL = mapping[s.session_id] || 1;
                     html += `
                         <div class="session-mapping-row">
-                            <span>${s.session_title} (${s.item_count} SP)</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                                <input type="checkbox" class="session-checkbox" value="${s.session_id}" onchange="updateDeleteButton()">
+                                <span>[${s.session_id}] ${s.session_title} (${s.item_count} SP)</span>
+                                <button class="btn btn-ghost" style="padding: 2px 6px; font-size: 0.8rem;" onclick="renameSession('${s.session_id}', '${s.session_title}')">✏️</button>
+                            </div>
                             <select onchange="setSessionDeallist('${s.session_id}', this.value)">
                                 <option value="1" ${currentDL == 1 ? 'selected' : ''}>Deal List 1</option>
                                 <option value="2" ${currentDL == 2 ? 'selected' : ''}>Deal List 2</option>
@@ -400,7 +486,25 @@
                     '<p style="color: var(--error);">Lỗi tải sessions: ' + e.message + '</p>';
             });
         }
-
+        function renameSession(sessionId, currentTitle) {
+            const newTitle = prompt("Nhập tên mới cho session:", currentTitle);
+            if (newTitle && newTitle !== currentTitle) {
+                fetch('/api/session-rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId, new_title: newTitle })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadSessionMappings(); // Reload list
+                        } else {
+                            alert('Lỗi: ' + data.error);
+                        }
+                    })
+                    .catch(e => alert('Lỗi: ' + e));
+            }
+        }
         function setSessionDeallist(sessionId, deallistId) {
             fetch('/api/session-deallist', {
                 method: 'POST',
@@ -416,6 +520,26 @@
                     }
                 });
         }
+
+
+        function cleanupOldSessions() {
+            if (!confirm('Xóa tất cả sessions cũ và chỉ giữ lại 2 sessions mới nhất?')) return;
+
+            fetch('/api/sessions/cleanup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        loadSessionMappings();
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                });
+        }
+
 
         function refreshDeallist(num) {
             const btn = document.getElementById(num === 1 ? 'refreshDeallistBtn' : 'refreshDeallist2Btn');
@@ -493,7 +617,128 @@
                 })
                 .catch(e => { select.innerHTML = '<option>Lỗi kết nối</option>'; });
         }
-    </script>
-</body>
 
-</html>
+        // ============== User Management ==============
+        function loadUsers() {
+            fetch('/api/users')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('userListContainer');
+                    if (!data.success || !data.users || data.users.length === 0) {
+                        container.innerHTML = '<p style="color: var(--text-secondary);">Chưa có user nào.</p>';
+                        return;
+                    }
+                    let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">';
+                    html += '<tr style="border-bottom: 1px solid var(--border);">';
+                    html += '<th style="text-align: left; padding: 0.5rem;">Email</th>';
+                    html += '<th style="text-align: left; padding: 0.5rem;">Tên</th>';
+                    html += '<th style="text-align: left; padding: 0.5rem;">Role</th>';
+                    html += '<th style="text-align: right; padding: 0.5rem;">Thao tác</th></tr>';
+                    data.users.forEach(u => {
+                        html += `<tr style="border-bottom: 1px solid var(--border);">`;
+                        html += `<td style="padding: 0.5rem;">${u.email}</td>`;
+                        html += `<td style="padding: 0.5rem;">${u.name || '-'}</td>`;
+                        html += `<td style="padding: 0.5rem;">
+                            <select onchange="updateUserRole(${u.id}, this.value)" style="padding: 0.35rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                                <option value="staff" ${u.role === 'staff' ? 'selected' : ''}>Staff</option>
+                                <option value="lead" ${u.role === 'lead' ? 'selected' : ''}>Lead</option>
+                                <option value="bod" ${u.role === 'bod' ? 'selected' : ''}>BOD</option>
+                            </select>
+                        </td>`;
+                        html += `<td style="text-align: right; padding: 0.5rem;">
+                            <button onclick="deleteUser(${u.id})" style="background: var(--error); color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">Xóa</button>
+                        </td></tr>`;
+                    });
+                    html += '</table>';
+                    container.innerHTML = html;
+                })
+                .catch(e => {
+                    document.getElementById('userListContainer').innerHTML = '<p style="color: var(--error);">Lỗi tải users</p>';
+                });
+        }
+
+        function addUser() {
+            const email = document.getElementById('newUserEmail').value.trim();
+            const role = document.getElementById('newUserRole').value;
+            const resultEl = document.getElementById('userResult');
+            if (!email) { alert('Vui lòng nhập email'); return; }
+
+            fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, role })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    resultEl.innerHTML = data.success
+                        ? `<div class="alert alert-success">✓ ${data.message}</div>`
+                        : `<div class="alert alert-error">✗ ${data.error}</div>`;
+                    if (data.success) {
+                        document.getElementById('newUserEmail').value = '';
+                        loadUsers();
+                    }
+                    setTimeout(() => { resultEl.innerHTML = ''; }, 3000);
+                });
+        }
+
+        function updateUserRole(userId, newRole) {
+            fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newRole })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) alert('Lỗi: ' + data.error);
+                });
+        }
+
+        function deleteUser(userId) {
+            if (!confirm('Xóa user này?')) return;
+            fetch(`/api/users/${userId}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) loadUsers();
+                    else alert('Lỗi: ' + data.error);
+                });
+        }
+    
+        // Update delete button text based on selected checkboxes
+        function updateDeleteButton() {
+            const checkboxes = document.querySelectorAll('.session-checkbox:checked');
+            const btn = document.getElementById('deleteSelectedBtn');
+            btn.disabled = checkboxes.length === 0;
+            btn.textContent = '🗑️ Xóa sessions đã chọn (' + checkboxes.length + ')';
+        }
+
+        // Delete selected sessions
+        function deleteSelectedSessions() {
+            const checkboxes = document.querySelectorAll('.session-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất 1 session để xóa');
+                return;
+            }
+            const sessionIds = Array.from(checkboxes).map(cb => cb.value);
+            const confirmMsg = 'Xác nhận xóa ' + sessionIds.length + ' session(s)?\n\n' +
+                'Session IDs: ' + sessionIds.join(', ') + '\n\n' +
+                '⚠️ Lưu ý: gmv_history KHÔNG bị xóa.';
+            if (!confirm(confirmMsg)) return;
+
+            fetch('/api/sessions/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_ids: sessionIds })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Đã xóa ' + data.deleted_count + ' session(s)');
+                    loadSessionMappings(); // Reload
+                } else {
+                    alert('❌ Lỗi: ' + data.error);
+                }
+            })
+            .catch(e => alert('❌ Lỗi: ' + e.message));
+        }
+
+    </script>

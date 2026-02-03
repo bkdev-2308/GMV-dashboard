@@ -1,0 +1,331 @@
+/* Header Fixed - Override for all devices */
+
+/* Fixed header */
+header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 100 !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    background: rgba(45, 0, 0, 0.90) !important;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.20) !important;
+}
+
+/* Nav mỏng hơn */
+.nav {
+    padding: 8px 0 !important;
+    gap: 15px !important;
+}
+
+/* Logo bình thường */
+.brand {
+    position: relative !important;
+    z-index: 200 !important;
+}
+
+.brand img {
+    height: 280px !important;
+    width: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    position: absolute !important;
+    top: -30px !important;
+    left: -170px !important;
+    z-index: 300 !important;
+}
+
+/* Offset cho main */
+main {
+    padding-top: 80px !important;
+}
+
+
+.nav-cta .btn .icon {
+    font-size: 12px !important;
+}
+
+/* ============================================
+   BANNER CHÚC TẾT - THIẾT KẾ MỚI
+   ============================================ */
+.greeting-banner-wrap {
+    position: relative !important;
+    margin-top: 10px !important;
+}
+
+.greeting-banner-inner {
+    position: relative;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 30px 62px !important;
+    text-align: center;
+    box-shadow: none !important;
+    overflow: visible;
+}
+
+/* Đã xóa dây pháo */
+.greeting-banner-inner::before {
+    display: none;
+}
+
+/* Đã xóa quạt */
+.greeting-banner-wrap::before {
+    display: none;
+}
+
+/* Hoa mai góc phải dưới */
+.greeting-banner-inner::after {
+    content: "";
+    position: absolute;
+    bottom: -25px;
+    right: -25px;
+    width: 70px;
+    height: 70px;
+    background: url('/static/tet_flower.webp') no-repeat center;
+    background-size: contain;
+}
+
+/* Đã xóa pháo hoa */
+.greeting-banner-wrap::after {
+    display: none;
+}
+
+/* Text trong banner */
+.greeting-banner-inner p {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-style: italic;
+    font-size: 17px;
+    margin: 0;
+    line-height: 1.7;
+}
+
+.greeting-banner-inner b {
+    color: #FFE55C !important;
+    font-style: normal;
+}
+
+/* Fix missing body styles */
+body {
+    margin: 0 !important;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    background:
+        radial-gradient(1200px 600px at 15% -5%, rgba(255, 215, 0, 0.18), transparent 55%),
+        radial-gradient(1000px 550px at 90% 15%, rgba(196, 30, 58, 0.22), transparent 55%),
+        radial-gradient(900px 500px at 50% 110%, rgba(139, 0, 0, 0.25), transparent 62%),
+        linear-gradient(135deg, #5C0000 0%, #8B0000 30%, #C41E3A 60%, #5C0000 100%) !important;
+    line-height: 1.55 !important;
+    overflow-x: hidden !important;
+}
+
+/* Pháo hoa particles */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(2px 2px at 10% 20%, #FFE55C, transparent),
+        radial-gradient(2px 2px at 25% 35%, #FFD700, transparent),
+        radial-gradient(2px 2px at 45% 15%, #FFF8DC, transparent),
+        radial-gradient(2px 2px at 70% 25%, #FFE55C, transparent),
+        radial-gradient(2px 2px at 85% 40%, #FFD700, transparent),
+        radial-gradient(2px 2px at 92% 12%, #FFF8DC, transparent);
+    animation: sparkle 3s ease-in-out infinite;
+    opacity: 0.7;
+}
+
+@keyframes sparkle {
+
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Link styles */
+a {
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+/* Container */
+.container {
+    width: min(1140px, calc(100% - 40px)) !important;
+    margin: 0 auto !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+/* Tablet nhỏ và điện thoại lớn (430px - 768px) - iPhone 14 Pro Max */
+@media (max-width: 768px) {
+    .greeting-banner-inner::before {
+        left: 60px;
+        height: 80px;
+        top: -60px;
+    }
+
+    .greeting-banner-wrap::after {
+        left: 20px;
+        top: 20px;
+        width: 50px;
+        height: 50px;
+    }
+}
+
+/* Mobile lớn (390px - 430px) - iPhone 14 Pro Max */
+@media (max-width: 430px) {
+    main {
+        padding-top: 70px !important;
+    }
+
+    .brand-logo {
+        height: 180px !important;
+        width: auto !important;
+        top: -30px !important;
+        left: 20px !important;
+        display: block !important;
+    }
+
+
+    header {
+        min-height: 50px !important;
+    }
+
+    .nav-cta {
+        flex-shrink: 0 !important;
+        width: auto !important;
+        min-width: auto !important;
+    }
+
+    /* Button kích thước cố định 115x35 */
+    .nav-cta .btn {
+        flex-shrink: 0 !important;
+        width: 130px !important;
+        height: 35px !important;
+        max-width: 130px !important;
+        padding: 0 8px !important;
+        font-size: 9px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Button primary kích thước cố định 115x35 */
+    .nav-cta .btn.primary {
+        width: 130px !important;
+        height: 35px !important;
+        max-width: 130px !important;
+        padding: 0 8px !important;
+        font-size: 9px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Icon trong button */
+    .nav-cta .btn .icon {
+        font-size: 9px !important;
+    }
+
+    /* Logo cho mobile */
+    .brand img {
+        height: 150px !important;
+        width: auto !important;
+        top: -25px !important;
+        left: -20px !important;
+    }
+
+    .greeting-banner-inner {
+        padding: 30px 45px !important;
+        text-align: center;
+
+    }
+
+    /* Sợi dây - căn theo logo - swing nhẹ */
+    .greeting-banner-inner::before {
+        width: 2px;
+        height: 65px;
+        left: 20px;
+        top: -55px;
+        transform-origin: top center;
+        animation: swingString 3s ease-in-out infinite;
+    }
+
+    /* Pháo hoa - swing */
+    .greeting-banner-wrap::after {
+        left: -3px;
+        top: 5px;
+        width: 45px;
+        height: 45px;
+        transform-origin: top center;
+        animation: swingFirework 4s ease-in-out infinite;
+    }
+
+    /* Hoa mai mobile */
+    .greeting-banner-inner::after {
+        width: 40px;
+        height: 40px;
+        bottom: -12px;
+        right: -8px;
+    }
+
+    .greeting-banner-inner p {
+        font-size: 14px;
+    }
+}
+
+/* Mobile nhỏ (< 390px) - iPhone SE, điện thoại nhỏ */
+@media (max-width: 390px) {
+    .brand img {
+        height: 200px !important;
+        width: auto !important;
+        left: -140px !important;
+        top: -60px !important;
+    }
+
+    .nav-cta .btn {
+        padding: 4px 8px !important;
+        font-size: 9px !important;
+    }
+
+    .greeting-banner-inner::before {
+        left: 15px;
+        height: 55px;
+        top: -50px;
+    }
+
+    .greeting-banner-wrap::after {
+        left: -5px;
+        top: 0px;
+        width: 40px;
+        height: 40px;
+    }
+
+    .greeting-banner-inner {
+        padding: 18px 12px 18px 35px !important;
+    }
+
+    .greeting-banner-inner p {
+        font-size: 13px;
+    }
+}
+
+/* Fix anchor scroll offset for fixed header */
+[id] {
+    scroll-margin-top: 100px;
+}

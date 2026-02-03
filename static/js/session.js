@@ -19,7 +19,7 @@ async function loadSessions() {
             const select = document.getElementById('sessionFilter');
             if (!select) return;
 
-            select.innerHTML = '<option value="">-- Tất cả phiên --</option>';
+            select.innerHTML = '';  // Bỏ option "Tất cả phiên"
 
             data.sessions.forEach(s => {
                 const opt = document.createElement('option');
@@ -55,22 +55,6 @@ async function onSessionChange() {
         tableWrapper.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     }
 
-    if (!sessionId) {
-        // Chọn "Tất cả phiên" - disable history filter
-        if (historySelect) {
-            historySelect.disabled = true;
-            historySelect.innerHTML = '<option value="">🟢 Live hiện tại</option>';
-        }
-        if (badge) badge.style.display = 'none';
-
-        // Reload tất cả data
-        if (typeof loadData === 'function') {
-            dataLoaded = false;  // 🆕 Reset flag
-            fullData = [];       // 🆕 Clear data
-            await loadData(false);
-        }
-        return;
-    }
 
     // Enable history filter và load timeslots
     if (historySelect) {

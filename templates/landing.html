@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeyondK Network</title>
     <meta name="description" content="BeyondK Network - Giải pháp Affiliate Marketing">
-    <link rel="icon" type="image/x-icon" href="/static/logo.ico">
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <style>
@@ -568,8 +568,13 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .nav-links {
+            .nav-link {
                 display: none;
+            }
+
+            .btn-primary {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -617,12 +622,12 @@
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="nav-brand">
-                <img src="/static/logo.ico" alt="BeyondK" class="nav-logo">
+                <img src="/static/BK_logo.ico" alt="BeyondK" class="nav-logo">
                 <span class="nav-brand-text">BeyondK Network</span>
             </a>
             <div class="nav-links">
                 <a href="#about" class="nav-link">Về chúng tôi</a>
-                <a href="/admin/login" class="btn btn-primary">Đăng nhập</a>
+                <a href="/login" class="btn btn-primary">Đăng nhập</a>
             </div>
         </div>
     </nav>

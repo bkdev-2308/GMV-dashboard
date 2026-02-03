@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - BeyondK</title>
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/dashboard-all.css">
+    <style>
+        .staff-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Search Section */
+        .search-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .search-input-group {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .search-input-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            padding-left: 2.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-group select {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            min-width: 200px;
+        }
+
+        .search-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Stats Section - Light design, easy to read */
+        .stats-section {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid #10b981;
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stats-section.show {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-item .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-item .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 30px;
+            background: var(--border);
+        }
+
+        /* Data Table */
+        .data-table-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.875rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .data-table td {
+            font-size: 0.875rem;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .product-name {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .shop-id {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        /* Logout */
+        .logout-btn {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        .logout-btn:hover {
+            color: var(--primary);
+        }
+
+        /* ========== PRODUCT IMAGE STYLES ========== */
+        .product-image-cell {
+            padding: 0.5rem;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        /* Product cell layout */
+        .product-cell-flex {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Product image wrapper */
+        .product-image-wrapper {
+            flex-shrink: 0;
+            width: 60px;
+            height: 60px;
+        }
+
+        .product-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            background: #fafafa;
+            cursor: zoom-in;
+        }
+
+        /* HOVER IMAGE → ZOOM TO CENTER */
+        .product-image-wrapper:hover .product-thumbnail {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            z-index: 10000;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: white;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            cursor: zoom-out;
+        }
+
+        /* Product info */
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .product-name-wrapper {
+            position: relative;
+        }
+
+        .product-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: help;
+        }
+
+        /* TOOLTIP ĐƠN GIẢN - chỉ hiện tên đầy đủ */
+        .product-tooltip {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 100%;
+            margin-top: 0.25rem;
+            background: #2d3748;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            z-index: 1000;
+            max-width: 400px;
+            white-space: normal;
+            word-wrap: break-word;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+        }
+
+        .product-name-wrapper:hover .product-tooltip {
+            display: block;
+        }
+
+        /* Sortable Column Styles */
+        .data-table th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .data-table th.sortable:hover {
+            background: var(--bg-secondary);
+        }
+
+        .sort-arrow {
+            margin-left: 4px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="staff-container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1 class="page-title">📊 Staff Dashboard</h1>
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">S</div>
+                <a href="/logout" class="logout-btn">Đăng xuất</a>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="search-row">
+                <div class="search-input-group">
+                    <label>Tìm kiếm</label>
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input type="text" id="searchInput" class="search-input"
+                            placeholder="Nhập Shop ID hoặc Tên sản phẩm..."
+                            onkeypress="if(event.key==='Enter') doSearch()">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                            <polyline points="17 2 12 7 7 2" />
+                        </svg>
+                        Phiên Live
+                    </label>
+                    <select id="sessionFilter" onchange="doSearch()">
+
+                    </select>
+                </div>
+
+                <button class="search-btn" onclick="doSearch()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Tìm kiếm
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Section (hidden by default) -->
+        <div class="stats-section" id="statsSection">
+            <div class="stat-item">
+                <span class="stat-label">📦 Số SP:</span>
+                <span class="stat-value" id="statCount">0</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item" id="gmvStat" style="display: none;">
+                <span class="stat-label">💰 GMV:</span>
+                <span class="stat-value" id="statGMV">0 đ</span>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <p>⏳ Đang tải dữ liệu...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-title">Nhập Shop ID hoặc Tên sản phẩm để tìm kiếm</div>
+            <p>Bạn có thể tìm theo Shop ID (ví dụ: 5740328572) hoặc tên sản phẩm</p>
+        </div>
+
+        <!-- Data Table -->
+        <div class="data-table-container" id="dataTableContainer" style="display: none;">
+            <table class="data-table" id="dataTable">
+                <thead id="dataTableHead">
+                </thead>
+                <tbody id="dataTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let isShopIdSearch = false;
+        let currentSort = { column: 'revenue', direction: 'desc' };
+
+        // Load sessions on page load
+        async function loadSessions() {
+            try {
+                const resp = await fetch('/api/sessions');
+                const data = await resp.json();
+                const select = document.getElementById('sessionFilter');
+                if (data.success && data.sessions) {
+                    data.sessions.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.session_id;
+                        opt.textContent = s.session_title;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading sessions:', e);
+            }
+        }
+
+        // Check if search term is a Shop ID (numeric)
+        function isNumericShopId(term) {
+            return /^\d{5,}$/.test(term.trim());
+        }
+
+        // Do search
+        async function doSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const sessionId = document.getElementById('sessionFilter').value;
+
+            if (!searchTerm) {
+                showEmptyState();
+                return;
+            }
+
+            showLoading();
+            isShopIdSearch = isNumericShopId(searchTerm);
+
+            try {
+                let url = `/api/staff/search?q=${encodeURIComponent(searchTerm)}`;
+                if (sessionId) url += `&session_id=${sessionId}`;
+
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                if (data.success && data.data.length > 0) {
+                    allData = data.data;
+                    // Apply default sort
+                    sortData();
+                    showResults();
+                } else {
+                    showNoResults();
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+                showNoResults();
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('dataTableContainer').style.display = 'none';
+            document.getElementById('statsSection').classList.remove('show');
+        }
+
+        function showEmptyState() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('dataTableContainer').style.display = 'none';
+            document.getElementById('statsSection').classList.remove('show');
+        }
+
+        function showNoResults() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('emptyState').innerHTML = `
+                <div class="empty-state-icon">😕</div>
+                <div class="empty-state-title">Không tìm thấy kết quả</div>
+                <p>Thử tìm với từ khóa khác</p>
+            `;
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('dataTableContainer').style.display = 'none';
+            document.getElementById('statsSection').classList.remove('show');
+        }
+
+        // Sort data by current sort settings
+        function sortData() {
+            const col = currentSort.column;
+            const dir = currentSort.direction;
+            allData.sort((a, b) => {
+                const valA = a[col] || 0;
+                const valB = b[col] || 0;
+                return dir === 'desc' ? valB - valA : valA - valB;
+            });
+        }
+
+        // Toggle sort on column click
+        function toggleSort(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+            sortData();
+            showResults();
+        }
+
+        // Render table header with sort arrows
+        function renderTableHeader() {
+            const columns = [
+                { key: 'item_name', label: 'Sản phẩm', sortable: false },
+                { key: 'shop_id', label: 'Shop ID', sortable: false },
+                { key: 'revenue', label: 'GMV', sortable: true },
+                { key: 'clicks', label: 'Clicks', sortable: true },
+                { key: 'add_to_cart', label: 'ATC', sortable: true },
+                { key: 'orders', label: 'Đơn hàng', sortable: true }
+            ];
+
+            let html = '<tr>';
+            columns.forEach(col => {
+                if (col.sortable) {
+                    const arrow = currentSort.column === col.key
+                        ? (currentSort.direction === 'desc' ? ' ▼' : ' ▲')
+                        : '';
+                    html += `<th class="sortable" data-sort="${col.key}">${col.label}<span class="sort-arrow">${arrow}</span></th>`;
+                } else {
+                    html += `<th>${col.label}</th>`;
+                }
+            });
+            html += '</tr>';
+            document.getElementById('dataTableHead').innerHTML = html;
+        }
+
+        function showResults() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('dataTableContainer').style.display = 'block';
+
+            // Show stats
+            document.getElementById('statCount').textContent = allData.length;
+            document.getElementById('statsSection').classList.add('show');
+
+            // Only show GMV if searching by Shop ID
+            const gmvStat = document.getElementById('gmvStat');
+            if (isShopIdSearch) {
+                const totalGMV = allData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+                document.getElementById('statGMV').textContent = formatCurrency(totalGMV);
+                gmvStat.style.display = 'flex';
+            } else {
+                gmvStat.style.display = 'none';
+            }
+
+            // Render table header with sort arrows
+            renderTableHeader();
+
+            // Render table body
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = allData.map((item, idx) => {
+                const rank = idx + 1;
+                const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+                const coverImage = item.cover_image || '';
+                const imageUrl = coverImage ? `https://mms.img.susercontent.com/${coverImage}` : '';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-cell-flex">
+                                ${imageUrl ? `
+                                <div class="product-image-wrapper">
+                                    <img src="${imageUrl}" alt="Product" class="product-thumbnail" crossorigin="anonymous" loading="lazy" />
+                                </div>
+                                ` : ''}
+                                <div class="product-info">
+                                    <div class="product-name" title="${escapeHtml(item.item_name || '')}">${escapeHtml(item.item_name || 'N/A')}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="shop-id">${item.shop_id || '-'}</td>
+                        <td>${formatCurrency(item.revenue)}</td>
+                        <td>${(item.clicks || 0).toLocaleString()}</td>
+                        <td>${(item.add_to_cart || 0).toLocaleString()}</td>
+                        <td>${(item.orders || 0).toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatCurrency(value) {
+            if (!value) return '0 đ';
+            if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B đ';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M đ';
+            return new Intl.NumberFormat('vi-VN').format(value) + ' đ';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Event delegation for sortable headers
+        document.getElementById('dataTableContainer').addEventListener('click', function (e) {
+            const th = e.target.closest('th.sortable');
+            if (th) {
+                const column = th.getAttribute('data-sort');
+                if (column) {
+                    toggleSort(column);
+                }
+            }
+        });
+
+        // Init
+        loadSessions();
+    </script>
+</body>
+
+</html>

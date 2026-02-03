@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Tên Lịch Sử - BeyondK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a35;
+            --bg-card: #252545;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0c0;
+            --accent: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #3f3f5a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            color: var(--warning);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.875rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            background: var(--bg-secondary);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            opacity: 0.9;
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 2px solid var(--warning);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .warning-box h3 {
+            color: var(--warning);
+            margin-bottom: 0.5rem;
+        }
+
+        .warning-box p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+
+        .session-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .session-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .session-info {
+            flex: 1;
+        }
+
+        .session-title {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .session-meta {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .edit-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .edit-form input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .edit-form input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-save {
+            padding: 0.75rem 1.5rem;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-save:hover {
+            opacity: 0.9;
+        }
+
+        .btn-delete {
+            padding: 0.75rem 1.5rem;
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-delete:hover {
+            opacity: 0.9;
+        }
+
+        .timeslot-list {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .timeslot-list-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .timeslot-item {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding: 0.25rem 0;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid currentColor;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛠️ Sửa Tên Lịch Sử (One-time Fix)</h1>
+            <a href="/admin/setting" class="btn btn-ghost">← Về Settings</a>
+        </div>
+
+        <div class="warning-box">
+            <h3>⚠️ Cảnh báo</h3>
+            <p>
+                Công cụ này dùng để sửa tên các bản ghi lịch sử CŨ trong <code>gmv_history</code> đã bị lỗi.<br>
+                <strong>Chỉ sử dụng một lần</strong> để fix dữ liệu cũ. Sau khi fix xong, không nên dùng nữa.<br>
+                Từ giờ, khi đổi tên session trong Settings, chỉ session hiện tại bị đổi, lịch sử sẽ giữ nguyên.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>📋 Sessions đã archive</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">
+                Chọn session để sửa tên hoặc xóa. Tên mới sẽ áp dụng cho TẤT CẢ các khung giờ của session đó.
+            </p>
+        </div>
+
+        <div class="card" id="sessionsCard" style="display: none;">
+            <h2>📝 Danh sách Sessions</h2>
+            <div id="sessionsContainer"></div>
+        </div>
+
+        <div id="resultMessage"></div>
+    </div>
+
+    <script>
+        let allSessions = [];
+
+        // Load sessions on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSessions();
+        });
+
+        async function loadSessions(retryCount = 0) {
+            const sessionsCard = document.getElementById('sessionsCard');
+            const sessionsContainer = document.getElementById('sessionsContainer');
+            
+            const maxRetries = 3;
+            const retryDelay = 3000; // 3 seconds
+            
+            if (retryCount === 0) {
+                sessionsContainer.innerHTML = '<p style="color: var(--text-secondary);">Đang tải...</p>';
+                sessionsCard.style.display = 'block';
+            } else {
+                sessionsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--warning);">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Database đang khởi động...</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            Đang thử lại lần ${retryCount}/${maxRetries}...
+                        </div>
+                    </div>
+                `;
+            }
+
+            try {
+                const resp = await fetch('/api/archived-sessions');
+                const data = await resp.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Unknown error');
+                }
+                
+                if (data.sessions.length === 0) {
+                    sessionsContainer.innerHTML = '<div class="empty-state">Không có session nào</div>';
+                    return;
+                }
+
+                allSessions = data.sessions;
+                renderSessions(allSessions);
+            } catch (e) {
+                console.error('❌ Error getting archived sessions:', e.message);
+                
+                // Check if it's a database connection error
+                const isDbError = e.message.includes('connection') || 
+                                 e.message.includes('server') ||
+                                 e.message.includes('database');
+                
+                if (isDbError && retryCount < maxRetries) {
+                    // Retry after delay
+                    setTimeout(() => {
+                        loadSessions(retryCount + 1);
+                    }, retryDelay);
+                } else {
+                    // Max retries reached or other error
+                    sessionsContainer.innerHTML = `
+                        <div style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem; color: var(--error);">❌</div>
+                            <div style="font-weight: 600; margin-bottom: 1rem; color: var(--error);">
+                                ${isDbError ? 'Database không khả dụng' : 'Lỗi tải dữ liệu'}
+                            </div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                                ${isDbError ? 
+                                    'Database đang restart hoặc maintenance. Vui lòng đợi 1-2 phút.' : 
+                                    e.message
+                                }
+                            </div>
+                            <button class="btn-save" onclick="loadSessions(0)" style="margin: 0 auto;">
+                                🔄 Thử lại
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        async function renderSessions(sessions) {
+            const sessionsContainer = document.getElementById('sessionsContainer');
+            
+            let html = '';
+            for (const session of sessions) {
+                // Get timeslots for this session
+                const timeslots = await getTimeslots(session.session_id);
+                
+                html += `
+                    <div class="session-item">
+                        <div class="session-item-header">
+                            <div class="session-info">
+                                <div class="session-title">${session.session_title}</div>
+                                <div class="session-meta">
+                                    <span>📦 Session ID: ${session.session_id}</span>
+                                    <span>🕐 ${session.timeslot_count} khung giờ</span>
+                                    <span>📊 ${session.item_count} sản phẩm</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="edit-form">
+                            <input type="text" 
+                                   id="input_${session.session_id}" 
+                                   value="${session.session_title}" 
+                                   placeholder="Nhập tên mới cho session...">
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn-save" onclick="updateSession('${session.session_id}')">
+                                💾 Lưu tên mới
+                            </button>
+                            <button class="btn-delete" onclick="confirmDeleteSession('${session.session_id}', '${session.session_title}', ${session.timeslot_count}, ${session.item_count})">
+                                🗑️ Xóa session
+                            </button>
+                        </div>
+                        
+                        ${timeslots.length > 0 ? `
+                            <div class="timeslot-list">
+                                <div class="timeslot-list-title">📅 Các khung giờ sẽ được cập nhật:</div>
+                                ${timeslots.map(t => `<div class="timeslot-item">• ${t}</div>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            sessionsContainer.innerHTML = html;
+        }
+
+        async function getTimeslots(sessionId) {
+            try {
+                const resp = await fetch(`/api/history/timeslots?session_id=${sessionId}`);
+                const data = await resp.json();
+                
+                if (data.success && data.timeslots.length > 0) {
+                    return data.timeslots.map(t => {
+                        const dt = new Date(t.archived_at);
+                        return dt.toLocaleString('vi-VN') + ` (${t.item_count} SP)`;
+                    });
+                }
+                return [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        async function updateSession(sessionId) {
+            const input = document.getElementById(`input_${sessionId}`);
+            const newTitle = input.value.trim();
+            const resultMessage = document.getElementById('resultMessage');
+
+            if (!newTitle) {
+                alert('Vui lòng nhập tên mới');
+                return;
+            }
+
+            if (!confirm(`Xác nhận đổi tên session?\n\nTên mới: ${newTitle}\n\nTất cả các khung giờ của session này sẽ được cập nhật.`)) {
+                return;
+            }
+
+            // Show loading state
+            resultMessage.innerHTML = `
+                <div style="text-align: center; padding: 1.5rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                    <div class="spinner" style="margin: 0 auto 1rem;"></div>
+                    <div style="font-weight: 600; color: var(--text-primary);">Đang cập nhật...</div>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                        Xử lý theo batch để tránh quá tải database
+                    </div>
+                </div>
+            `;
+
+            try {
+                const resp = await fetch('/api/fix-history/update-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        new_title: newTitle
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (data.success) {
+                    resultMessage.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ ${data.message}
+                            ${data.updated_count !== data.total_rows ? 
+                                `<br><small>⚠️ Một số bản ghi có thể đã có tên này</small>` : 
+                                ''
+                            }
+                        </div>
+                    `;
+                    setTimeout(() => { 
+                        resultMessage.innerHTML = ''; 
+                        loadSessions(0); // Reload to show updated name
+                    }, 3000);
+                } else {
+                    resultMessage.innerHTML = `<div class="alert alert-error">❌ ${data.error}</div>`;
+                }
+            } catch (e) {
+                resultMessage.innerHTML = `<div class="alert alert-error">❌ Lỗi: ${e.message}</div>`;
+            }
+        }
+
+        function confirmDeleteSession(sessionId, sessionTitle, timeslotCount, itemCount) {
+            const message = `⚠️ XÁC NHẬN XÓA SESSION?\n\n` +
+                `Session: ${sessionTitle}\n` +
+                `Session ID: ${sessionId}\n` +
+                `Số khung giờ: ${timeslotCount}\n` +
+                `Tổng sản phẩm: ${itemCount}\n\n` +
+                `Hành động này sẽ XÓA VĨNH VIỄN tất cả dữ liệu lịch sử của session này.\n` +
+                `KHÔNG THỂ HOÀN TÁC!\n\n` +
+                `Quá trình xóa sẽ được thực hiện theo batch để tránh quá tải database.\n\n` +
+                `Bạn có chắc chắn muốn xóa?`;
+            
+            if (confirm(message)) {
+                deleteSession(sessionId);
+            }
+        }
+
+        async function deleteSession(sessionId) {
+            const resultMessage = document.getElementById('resultMessage');
+
+            // Show loading state
+            resultMessage.innerHTML = `
+                <div style="text-align: center; padding: 1.5rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                    <div class="spinner" style="margin: 0 auto 1rem;"></div>
+                    <div style="font-weight: 600; color: var(--error);">Đang xóa session...</div>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                        Xử lý theo batch để tránh quá tải database.<br>
+                        Vui lòng không tắt trang này.
+                    </div>
+                </div>
+            `;
+
+            try {
+                const resp = await fetch('/api/fix-history/delete-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const data = await resp.json();
+
+                if (data.success) {
+                    resultMessage.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ ${data.message}
+                            <br><small>Database đã được dọn dẹp (VACUUM)</small>
+                        </div>
+                    `;
+                    setTimeout(() => { 
+                        resultMessage.innerHTML = ''; 
+                        loadSessions(0); // Reload list
+                    }, 3000);
+                } else {
+                    resultMessage.innerHTML = `<div class="alert alert-error">❌ ${data.error}</div>`;
+                }
+            } catch (e) {
+                resultMessage.innerHTML = `<div class="alert alert-error">❌ Lỗi: ${e.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
