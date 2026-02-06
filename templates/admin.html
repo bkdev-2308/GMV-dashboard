@@ -283,7 +283,7 @@
             .metrics-row {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             }
-            
+
             .metric-value {
                 font-size: 1.25rem;
             }
@@ -296,10 +296,11 @@
         <header>
             <div class="logo">
                 <div class="logo-icon">⚙️</div>
-                <h1>Cài <span>đặt</span></h1>
+                <h1>Cài đặt</h1>
             </div>
             <div style="display: flex; gap: 1rem;">
-                <a href="/admin/fix-history" class="btn btn-ghost" style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
+                <a href="/admin/fix-history" class="btn btn-ghost"
+                    style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
                     🛠️ Sửa Lịch Sử Cũ
                 </a>
                 <a href="/admin" class="btn btn-ghost">← Về Dashboard</a>
@@ -386,7 +387,8 @@
             <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">
                 Chọn sessions để xóa (gmv_history không bị ảnh hưởng).
             </p>
-            <button class="btn btn-danger" onclick="deleteSelectedSessions()" id="deleteSelectedBtn" style="width: 100%; margin-bottom: 1rem;" disabled>
+            <button class="btn btn-danger" onclick="deleteSelectedSessions()" id="deleteSelectedBtn"
+                style="width: 100%; margin-bottom: 1rem;" disabled>
                 🗑️ Xóa sessions đã chọn (0)
             </button>
             <div id="sessionMappingContainer">
@@ -417,6 +419,39 @@
                 <p style="color: var(--text-secondary);">Đang tải danh sách user...</p>
             </div>
             <div id="userResult"></div>
+        </div>
+
+        <!-- Brand User Management Section -->
+        <div class="card">
+            <h2 class="card-title">🏢 Quản lý Brand Users</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">
+                Tạo brand user với email/password. Brand user xem GMV của shop IDs thuộc brand được gán.
+            </p>
+
+            <div style="display: grid; gap: 0.5rem; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="email" id="brandUserEmail" placeholder="brand@example.com"
+                        style="flex: 1; min-width: 200px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                    <input type="text" id="brandUserFullName" placeholder="Full Name"
+                        style="flex: 1; min-width: 150px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="password" id="brandUserPassword" placeholder="Password"
+                        style="flex: 1; min-width: 200px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                    <input type="text" id="brandUserBrandLabel" placeholder="Brand Label (vd: Oppo, Samsung)"
+                        style="flex: 1; min-width: 200px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="text" id="brandUserShopIds" placeholder="Shop IDs (vd: 123456, 789012, 345678)"
+                        style="flex: 1; min-width: 300px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                    <button class="btn btn-success" onclick="createBrandUser()">+ Tạo Brand User</button>
+                </div>
+            </div>
+
+            <div id="brandUserListContainer" style="overflow-x: auto;">
+                <p style="color: var(--text-secondary);">Đang tải brand users...</p>
+            </div>
+            <div id="brandUserResult"></div>
         </div>
     </div>
 
@@ -702,7 +737,7 @@
                     else alert('Lỗi: ' + data.error);
                 });
         }
-    
+
         // Update delete button text based on selected checkboxes
         function updateDeleteButton() {
             const checkboxes = document.querySelectorAll('.session-checkbox:checked');
@@ -729,16 +764,180 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_ids: sessionIds })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert('✅ Đã xóa ' + data.deleted_count + ' session(s)');
-                    loadSessionMappings(); // Reload
-                } else {
-                    alert('❌ Lỗi: ' + data.error);
-                }
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ Đã xóa ' + data.deleted_count + ' session(s)');
+                        loadSessionMappings(); // Reload
+                    } else {
+                        alert('❌ Lỗi: ' + data.error);
+                    }
+                })
+                .catch(e => alert('❌ Lỗi: ' + e.message));
+        }
+
+        // ============== Brand User Management Functions ==============
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBrandUsers(); // Load brand users on page load
+        });
+
+        function loadBrandUsers() {
+            fetch('/api/brand-users')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        document.getElementById('brandUserListContainer').innerHTML =
+                            '<p style="color: var(--error);">Lỗi: ' + data.error + '</p>';
+                        return;
+                    }
+
+                    const users = data.users || [];
+                    if (users.length === 0) {
+                        document.getElementById('brandUserListContainer').innerHTML =
+                            '<p style="color: var(--text-secondary);">Chưa có brand user nào.</p>';
+                        return;
+                    }
+
+                    let html = '<table style="width: 100%; border-collapse: collapse;">';
+                    html += '<thead><tr style="border-bottom: 1px solid var(--border);">';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Email</th>';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Full Name</th>';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Brand Label</th>';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Shop IDs</th>';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Status</th>';
+                    html += '<th style="text-align: left; padding: 0.75rem;">Last Login</th>';
+                    html += '<th style="text-align: right; padding: 0.75rem;">Actions</th>';
+                    html += '</tr></thead><tbody>';
+
+                    users.forEach(user => {
+                        const statusBadge = user.is_active
+                            ? '<span style="color: var(--success); font-weight: 600;">✓ Active</span>'
+                            : '<span style="color: var(--error); font-weight: 600;">✗ Inactive</span>';
+
+                        // Get brand labels and shop IDs
+                        const brandLabels = user.brand_labels && user.brand_labels.length > 0
+                            ? user.brand_labels.filter(b => b).join(', ')
+                            : '-';
+                        const shopIds = user.shop_ids && user.shop_ids.length > 0
+                            ? user.shop_ids.filter(s => s).join(', ')
+                            : '-';
+                        const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString('vi-VN') : 'Never';
+
+                        html += '<tr style="border-bottom: 1px solid var(--border);">';
+                        html += `<td style="padding: 0.75rem;">${user.email}</td>`;
+                        html += `<td style="padding: 0.75rem;">${user.full_name || '-'}</td>`;
+                        html += `<td style="padding: 0.75rem;">${brandLabels}</td>`;
+                        html += `<td style="padding: 0.75rem; font-size: 0.85rem;"><code>${shopIds}</code></td>`;
+                        html += `<td style="padding: 0.75rem;">${statusBadge}</td>`;
+                        html += `<td style="padding: 0.75rem;">${lastLogin}</td>`;
+                        html += `<td style="padding: 0.75rem; text-align: right;">`;
+                        html += `<button class="btn btn-ghost" onclick="editBrandUser(${user.id}, '${user.email}', '${user.full_name || ''}', '${brandLabels}', '${shopIds}')" style="padding: 4px 8px; font-size: 0.85rem;">Edit</button> `;
+                        html += `<button class="btn btn-danger" onclick="deleteBrandUser(${user.id})" style="padding: 4px 8px; font-size: 0.85rem;">Delete</button>`;
+                        html += '</td></tr>';
+                    });
+
+                    html += '</tbody></table>';
+                    document.getElementById('brandUserListContainer').innerHTML = html;
+                })
+                .catch(e => {
+                    document.getElementById('brandUserListContainer').innerHTML =
+                        '<p style="color: var(--error);">Lỗi kết nối: ' + e.message + '</p>';
+                });
+        }
+
+        function createBrandUser() {
+            const email = document.getElementById('brandUserEmail').value.trim();
+            const fullName = document.getElementById('brandUserFullName').value.trim();
+            const password = document.getElementById('brandUserPassword').value;
+            const brandLabel = document.getElementById('brandUserBrandLabel').value.trim();
+            const shopIdsInput = document.getElementById('brandUserShopIds').value.trim();
+
+            if (!email || !password) {
+                alert('Vui lòng nhập email và password');
+                return;
+            }
+
+            if (!shopIdsInput) {
+                alert('Vui lòng nhập ít nhất 1 shop ID');
+                return;
+            }
+
+            const shopIds = shopIdsInput.split(',').map(s => s.trim()).filter(s => s);
+
+            const resultEl = document.getElementById('brandUserResult');
+            fetch('/api/brand-users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, full_name: fullName, password, brand_label: brandLabel, shop_ids: shopIds })
             })
-            .catch(e => alert('❌ Lỗi: ' + e.message));
+                .then(r => r.json())
+                .then(data => {
+                    resultEl.innerHTML = data.success
+                        ? `<div class="alert alert-success">✓ ${data.message}</div>`
+                        : `<div class="alert alert-error">✗ ${data.error}</div>`;
+                    if (data.success) {
+                        document.getElementById('brandUserEmail').value = '';
+                        document.getElementById('brandUserFullName').value = '';
+                        document.getElementById('brandUserPassword').value = '';
+                        document.getElementById('brandUserBrandLabel').value = '';
+                        document.getElementById('brandUserShopIds').value = '';
+                        loadBrandUsers();
+                    }
+                    setTimeout(() => { resultEl.innerHTML = ''; }, 3000);
+                });
+        }
+
+        function editBrandUser(userId, email, fullName, brandLabel, shopIds) {
+            // Prompt for each field (allow empty to keep current value)
+            const newEmail = prompt(`Email (current: ${email})\nĐể trống để giữ nguyên:`, email);
+            if (newEmail === null) return; // Cancelled
+
+            const newFullName = prompt(`Full Name (current: ${fullName || '-'})\nĐể trống để giữ nguyên:`, fullName);
+            if (newFullName === null) return;
+
+            const newPassword = prompt('New Password (để trống nếu không đổi):');
+            if (newPassword === null) return;
+
+            const newBrandLabel = prompt(`Brand Label (current: ${brandLabel})\nĐể trống để giữ nguyên:`, brandLabel);
+            if (newBrandLabel === null) return;
+
+            const newShopIds = prompt(`Shop IDs (current: ${shopIds})\nNhập shop IDs cách nhau bởi dấu phẩy:`, shopIds);
+            if (newShopIds === null) return;
+
+            const payload = {};
+            if (newEmail && newEmail !== email) payload.email = newEmail.trim();
+            if (newFullName && newFullName !== fullName) payload.full_name = newFullName.trim();
+            if (newPassword) payload.password = newPassword;
+            if (newBrandLabel) payload.brand_label = newBrandLabel.trim();
+            if (newShopIds) {
+                payload.shop_ids = newShopIds.split(',').map(s => s.trim()).filter(s => s);
+            }
+
+            fetch(`/api/brand-users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✓ Cập nhật thành công!');
+                        loadBrandUsers();
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                });
+        }
+
+        function deleteBrandUser(userId) {
+            if (!confirm('Xóa brand user này? Brand assignments cũng sẽ bị xóa.')) return;
+            fetch(`/api/brand-users/${userId}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) loadBrandUsers();
+                    else alert('Lỗi: ' + data.error);
+                });
         }
 
     </script>

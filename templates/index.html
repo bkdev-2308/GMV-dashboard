@@ -148,6 +148,15 @@
                     </svg>
                     <span class="nav-text">History</span>
                 </a>
+                <a href="/admin/host-performance" class="nav-item" title="Host Performance">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span class="nav-text">Host Performance</span>
+                </a>
             </nav>
             {% if (session.get('is_admin') and not session.get('user')) or (session.get('user') and
             session.get('user').get('role') == 'bod') %}
@@ -289,8 +298,15 @@
                 style="margin-bottom: 2rem; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
                 <div class="section-header"
                     style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; margin-bottom: 0;">
-                    <h2 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin: 0;">📊 Overview
-                        Metrics</h2>
+                    <h2
+                        style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                            style="width: 1.5rem; height: 1.5rem;">
+                            <path
+                                d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z" />
+                        </svg>
+                        Overview Metrics
+                    </h2>
                 </div>
 
                 <!-- 3 Big Cards ở trên -->

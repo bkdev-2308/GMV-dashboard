@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Portal - BeyondK</title>
+    <link rel="icon" type="image/x-icon" href="/static/BK_logo.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --success: #10b981;
+            --error: #ef4444;
+            --bg: #f9fafb;
+            --bg-card: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .header-info {
+            font-size: 0.9rem;
+            opacity: 0.95;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .header-info strong {
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.95rem;
+        }
+
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60%,
+            100% {
+                content: '...';
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th,
+            td {
+                padding: 0.75rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div>
+                    <div class="header-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                            style="width: 2rem; height: 2rem; color: white; flex-shrink: 0;">
+                            <path
+                                d="M5.223 2.25c-.497 0-.974.198-1.325.55l-1.3 1.298A3.75 3.75 0 0 0 7.5 9.75c.627.47 1.406.75 2.25.75.844 0 1.624-.28 2.25-.75.626.47 1.406.75 2.25.75.844 0 1.623-.28 2.25-.75a3.75 3.75 0 0 0 4.902-5.652l-1.3-1.299a1.875 1.875 0 0 0-1.325-.549H5.223Z" />
+                            <path fill-rule="evenodd"
+                                d="M3 20.25v-8.755c1.42.674 3.08.673 4.5 0A5.234 5.234 0 0 0 9.75 12c.804 0 1.568-.182 2.25-.506a5.234 5.234 0 0 0 2.25.506c.804 0 1.567-.182 2.25-.506 1.42.674 3.08.675 4.5.001v8.755h.75a.75.75 0 0 1 0 1.5H2.25a.75.75 0 0 1 0-1.5H3Zm3-6a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm8.25-.75a.75.75 0 0 0-.75.75v5.25c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-5.25a.75.75 0 0 0-.75-.75h-3Z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        <h1>Brand Portal</h1>
+                    </div>
+                    <div class="header-info">
+                        <div>👤 {{ user.full_name or user.email }}</div>
+                        <div>🏷️ <strong>{{ brand_label }}</strong> • {{ shop_ids|length }} Shop(s)</div>
+                    </div>
+                </div>
+                <a href="/brand/logout" class="btn btn-logout">Đăng xuất</a>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-label">💰 Total GMV</div>
+                <div class="stat-value" id="totalGMV">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📦 Total Products</div>
+                <div class="stat-value" id="totalProducts">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🏪 Total Shops</div>
+                <div class="stat-value" id="totalShops">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ Total NMV</div>
+                <div class="stat-value" id="totalNMV">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <h2 class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                    style="width: 1.25rem; height: 1.25rem; display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                    <path fill-rule="evenodd"
+                        d="M1.5 5.625c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 0 1 1.5 18.375V5.625ZM21 9.375A.375.375 0 0 0 20.625 9h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5ZM10.875 18.75a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5ZM3.375 15h7.5a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375Zm0-3.75h7.5a.375.375 0 0 0 .375-.375v-1.5A.375.375 0 0 0 10.875 9h-7.5A.375.375 0 0 0 3 9.375v1.5c0 .207.168.375.375.375Z"
+                        clip-rule="evenodd" />
+                </svg>
+                GMV Performance Data
+            </h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Shop ID</th>
+                            <th onclick="sortTable('revenue')" style="cursor: pointer;">GMV <span
+                                    id="sort-revenue"></span></th>
+                            <th onclick="sortTable('clicks')" style="cursor: pointer;">Clicks <span
+                                    id="sort-clicks"></span></th>
+                            <th onclick="sortTable('orders')" style="cursor: pointer;">Orders <span
+                                    id="sort-orders"></span></th>
+                            <th onclick="sortTable('add_to_cart')" style="cursor: pointer;">ATC <span
+                                    id="sort-add_to_cart"></span></th>
+                            <th onclick="sortTable('confirmed_revenue')" style="cursor: pointer;">NMV <span
+                                    id="sort-confirmed_revenue"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="7" class="loading">Loading</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initialize data from server -->
+    <script id="brandDataScript" type="application/json">{{ shop_ids|tojson|safe }}</script>
+
+    <script>
+        // Shop IDs from server
+        const shopIds = JSON.parse(document.getElementById('brandDataScript').textContent);
+
+        async function loadBrandData() {
+            try {
+                const response = await fetch(`/api/brand/gmv-data`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    alert('Error loading data: ' + result.error);
+                    return;
+                }
+
+                // Update stats
+                const stats = result.stats || {};
+                document.getElementById('totalGMV').textContent = formatCurrency(stats.total_gmv || 0);
+                document.getElementById('totalProducts').textContent = stats.total_products || 0;
+                document.getElementById('totalShops').textContent = stats.total_shops || 0;
+                document.getElementById('totalNMV').textContent = formatCurrency(stats.total_nmv || 0);
+
+                // Store data for sorting
+                brandData = result.data || [];
+
+                // Render table
+                renderTable(brandData);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to load brand data');
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No data available for your shops</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td style="font-weight: 500;">${escapeHtml(row.item_name || '-')}</td>
+                    <td><span style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.85rem;">${row.shop_id || '-'}</span></td>
+                    <td style="color: var(--primary); font-weight: 600;">${formatCurrency(row.revenue || 0)}</td>
+                    <td>${row.clicks || 0}</td>
+                    <td>${row.orders || 0}</td>
+                    <td>${row.add_to_cart || 0}</td>
+                    <td style="color: var(--success); font-weight: 600;">${formatCurrency(row.confirmed_revenue || 0)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('vi-VN').format(value || 0) + ' đ';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Sorting state
+        let brandData = [];
+        let currentSort = { column: null, direction: 'desc' };
+
+        function sortTable(column) {
+            // Toggle direction if same column
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+
+            // Sort data
+            const sorted = [...brandData].sort((a, b) => {
+                const aVal = a[column] || 0;
+                const bVal = b[column] || 0;
+                return currentSort.direction === 'desc' ? bVal - aVal : aVal - bVal;
+            });
+
+            // Update sort indicators
+            document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '');
+            const indicator = currentSort.direction === 'desc' ? ' ↓' : ' ↑';
+            const sortEl = document.getElementById(`sort-${column}`);
+            if (sortEl) sortEl.textContent = indicator;
+
+            // Render sorted table
+            renderTable(sorted);
+        }
+
+        // Initial load
+        loadBrandData();
+    </script>
+</body>
+
+</html>

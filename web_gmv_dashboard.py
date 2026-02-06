@@ -24,6 +24,14 @@ except ImportError:
     OAUTH_AVAILABLE = False
     print("[WARNING] Authlib not installed. Google OAuth disabled.")
 
+# Password hashing for brand authentication
+try:
+    import bcrypt
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    BCRYPT_AVAILABLE = False
+    print("[WARNING] bcrypt not installed. Brand authentication disabled.")
+
 # Multi-session functions from db_helpers
 try:
     from db_helpers import (
@@ -355,9 +363,410 @@ def init_db():
         )
     ''')
     
+    # Brand users table for brand portal authentication (email + password)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS brand_users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name VARCHAR(255),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            last_login TIMESTAMP
+        )
+    ''')
+    
+    # User-Brand mapping table (many-to-many: one user can manage multiple brands)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_brand_mapping (
+            id SERIAL PRIMARY KEY,
+            user_email VARCHAR(255) NOT NULL,
+            brand_name TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_email, brand_name)
+        )
+    ''')
+    
+    # User-Shop mapping table (NEW: supports shop ID-based filtering)
+    # One user can manage multiple shop IDs under a brand label
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_shop_mapping (
+            id SERIAL PRIMARY KEY,
+            user_email VARCHAR(255) NOT NULL,
+            shop_id VARCHAR(50) NOT NULL,
+            brand_label VARCHAR(255),
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_email, shop_id)
+        )
+    ''')
+    
+    # Create indexes for brand tables
+    try:
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_brand_users_email ON brand_users(email)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_brand_mapping_email ON user_brand_mapping(user_email)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_brand_mapping_brand ON user_brand_mapping(brand_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_shop_mapping_email ON user_shop_mapping(user_email)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_shop_mapping_shop ON user_shop_mapping(shop_id)')
+        print("[DB] Indexes created for brand_users and user_brand_mapping")
+    except Exception as e:
+        print(f"[DB] Brand table index creation note: {e}")
+
+    
+    # Initialize host_schedule table (Host Performance feature)
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS host_schedule (
+                id SERIAL PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                session_date DATE,
+                start_time TIME,
+                end_time TIME,
+                duration_minutes INTEGER,
+                host_name TEXT NOT NULL,
+                cohost_name TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_session ON host_schedule(session_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_host ON host_schedule(host_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_date ON host_schedule(session_date)')
+        print("[DB] host_schedule table and indexes created")
+    except Exception as e:
+        print(f"[DB] Host schedule table creation note: {e}")
+    
     conn.commit()
     conn.close()
     print("[DB] Database tables initialized")
+
+# ============== Host Performance Functions (NEW) ==============
+
+def init_host_schedule_table():
+    """Initialize host_schedule table for host performance tracking"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS host_schedule (
+            id SERIAL PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            session_date DATE,
+            start_time TIME,
+            host_name TEXT NOT NULL,
+            cohost_name TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    ''')
+    
+    # Create indexes for faster queries
+    try:
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_session ON host_schedule(session_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_host ON host_schedule(host_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_host_schedule_date ON host_schedule(session_date)')
+        print("[DB] Created indexes for host_schedule")
+    except Exception as e:
+        print(f"[DB] Host schedule index creation note: {e}")
+    
+    conn.commit()
+    conn.close()
+    print("[DB] host_schedule table initialized")
+
+def sync_host_schedule_from_sheet(sheet_url):
+    """
+    Sync host schedule data from Google Sheets
+    Returns: (success, message, record_count)
+    """
+    try:
+        # Initialize table if not exists
+        init_host_schedule_table()
+        
+        # Get Google Sheets client
+        client = get_gspread_client()
+        
+        # Open sheet
+        if "http" in sheet_url:
+            sheet = client.open_by_url(sheet_url).sheet1
+        else:
+            sheet = client.open_by_key(sheet_url).sheet1
+        
+        # Get all records
+        records = sheet.get_all_records()
+        
+        if not records:
+            return (False, "No data found in sheet", 0)
+        
+        # Save to database
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Clear old data
+        cursor.execute("DELETE FROM host_schedule")
+        
+        # Migration: Add missing columns to existing tables
+        try:
+            cursor.execute('ALTER TABLE host_schedule ADD COLUMN IF NOT EXISTS end_time TIME')
+            cursor.execute('ALTER TABLE host_schedule ADD COLUMN IF NOT EXISTS duration_minutes INTEGER')
+        except Exception:
+            pass
+        
+        inserted = 0
+        for record in records:
+            # Adapt to various column naming conventions
+            session_id = record.get("Session ID", record.get("SessionID", record.get("session_id", "")))
+            host = record.get("Host", record.get("host", record.get("host_name", "")))
+            cohost = record.get("Co-host", record.get("Cohost", record.get("cohost_name", "")))
+            date_str = record.get("Date", record.get("date", record.get("session_date", "")))
+            time_str = record.get("Time", record.get("time", record.get("start_time", "")))
+            
+            # Parse time range (e.g., "10h-14h", "19:00-22:00", "10:00-14:30")
+            start_time = None
+            end_time = None
+            duration = None
+            
+            if time_str:
+                import re
+                from datetime import datetime, timedelta
+                
+                # Try to parse time range
+                # Patterns: "10h-14h", "10:00-14:00", "19:00-22:30"
+                range_match = re.match(r'(\d{1,2})[:h]?(\d{0,2})\s*[-–—]\s*(\d{1,2})[:h]?(\d{0,2})', str(time_str).strip())
+                
+                if range_match:
+                    # Parse start and end times
+                    start_hour = int(range_match.group(1))
+                    start_min = int(range_match.group(2)) if range_match.group(2) else 0
+                    end_hour = int(range_match.group(3))
+                    end_min = int(range_match.group(4)) if range_match.group(4) else 0
+                    
+                    start_time = f"{start_hour:02d}:{start_min:02d}:00"
+                    end_time = f"{end_hour:02d}:{end_min:02d}:00"
+                    
+                    # Calculate duration in minutes
+                    start_dt = datetime.strptime(start_time, "%H:%M:%S")
+                    end_dt = datetime.strptime(end_time, "%H:%M:%S")
+                    
+                    # Handle overnight sessions (end time before start time)
+                    if end_dt < start_dt:
+                        end_dt += timedelta(days=1)
+                    
+                    duration = int((end_dt - start_dt).total_seconds() / 60)
+                else:
+                    # Single time (no range) - backward compatibility
+                    single_match = re.match(r'(\d{1,2})[:h]?(\d{0,2})', str(time_str).strip())
+                    if single_match:
+                        hour = int(single_match.group(1))
+                        minute = int(single_match.group(2)) if single_match.group(2) else 0
+                        start_time = f"{hour:02d}:{minute:02d}:00"
+            
+            if session_id and host:
+                cursor.execute('''
+                    INSERT INTO host_schedule (session_id, session_date, start_time, end_time, duration_minutes, host_name, cohost_name)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ''', (session_id, date_str or None, start_time, end_time, duration, host, cohost or None))
+                inserted += 1
+        
+        conn.commit()
+        conn.close()
+        
+        return (True, f"Successfully synced {inserted} schedule entries", inserted)
+        
+    except Exception as e:
+        print(f"[HOST] Error syncing schedule: {e}")
+        return (False, f"Error: {str(e)}", 0)
+
+def get_host_performance_data(host_filter=None, time_filter="all"):
+    """
+    Get aggregated host performance metrics
+    Args:
+        host_filter: Host name to filter (None for all)
+        time_filter: "7days", "30days", or "all"
+    Returns: List of host performance records
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Build time filter condition
+        time_condition = ""
+        if time_filter == "7days":
+            time_condition = "AND o.archived_at >= NOW() - INTERVAL '7 days'"
+        elif time_filter == "30days":
+            time_condition = "AND o.archived_at >= NOW() - INTERVAL '30 days'"
+        
+        # Build host filter condition
+        host_condition = ""
+        params = []
+        if host_filter:
+            host_condition = "AND h.host_name = %s"
+            params.append(host_filter)
+        
+        
+        # Query to calculate GMV delta per host's time range
+        # Multiple hosts can share same session_id with different time slots
+        query = f'''
+            WITH host_time_ranges AS (
+                SELECT 
+                    h.session_id,
+                    h.host_name,
+                    h.session_date,
+                    h.start_time,
+                    h.end_time,
+                    h.duration_minutes,
+                    -- Construct datetime range for filtering
+                    CASE 
+                        WHEN h.session_date IS NOT NULL AND h.start_time IS NOT NULL 
+                        THEN (h.session_date || ' ' || h.start_time)::TIMESTAMP
+                        ELSE NULL
+                    END as range_start,
+                    CASE 
+                        WHEN h.session_date IS NOT NULL AND h.end_time IS NOT NULL 
+                        THEN 
+                            CASE 
+                                -- Handle overnight (end_time < start_time)
+                                WHEN h.end_time < h.start_time 
+                                THEN ((h.session_date + INTERVAL '1 day')::DATE || ' ' || h.end_time)::TIMESTAMP
+                                ELSE (h.session_date || ' ' || h.end_time)::TIMESTAMP
+                            END
+                        ELSE NULL
+                    END as range_end
+                FROM host_schedule h
+                WHERE 1=1 {host_condition}
+            ),
+            host_gmv_metrics AS (
+                SELECT 
+                    h.host_name,
+                    h.session_id,
+                    h.duration_minutes,
+                    h.range_start,
+                    h.range_end,
+                    -- Get GMV closest to start of host's time range
+                    (SELECT o.placed_gmv 
+                     FROM overview_history o 
+                     WHERE o.session_id = h.session_id 
+                       AND o.placed_gmv IS NOT NULL
+                       {time_condition.replace('o.archived_at', 'o.archived_at')}
+                     ORDER BY 
+                       CASE 
+                         WHEN h.range_start IS NOT NULL 
+                         THEN ABS(EXTRACT(EPOCH FROM (o.archived_at - h.range_start)))
+                         ELSE 0
+                       END ASC,
+                       o.archived_at ASC
+                     LIMIT 1
+                    ) as start_gmv,
+                    -- Get GMV closest to end of host's time range
+                    (SELECT o.placed_gmv 
+                     FROM overview_history o 
+                     WHERE o.session_id = h.session_id 
+                       AND o.placed_gmv IS NOT NULL
+                       {time_condition.replace('o.archived_at', 'o.archived_at')}
+                     ORDER BY 
+                       CASE 
+                         WHEN h.range_end IS NOT NULL 
+                         THEN ABS(EXTRACT(EPOCH FROM (o.archived_at - h.range_end)))
+                         ELSE 0
+                       END ASC,
+                       o.archived_at DESC
+                     LIMIT 1
+                    ) as end_gmv,
+                    -- Same for NMV
+                    (SELECT o.confirmed_gmv 
+                     FROM overview_history o 
+                     WHERE o.session_id = h.session_id 
+                       AND o.confirmed_gmv IS NOT NULL
+                       {time_condition.replace('o.archived_at', 'o.archived_at')}
+                     ORDER BY 
+                       CASE 
+                         WHEN h.range_start IS NOT NULL 
+                         THEN ABS(EXTRACT(EPOCH FROM (o.archived_at - h.range_start)))
+                         ELSE 0
+                       END ASC,
+                       o.archived_at ASC
+                     LIMIT 1
+                    ) as start_nmv,
+                    (SELECT o.confirmed_gmv 
+                     FROM overview_history o 
+                     WHERE o.session_id = h.session_id 
+                       AND o.confirmed_gmv IS NOT NULL
+                       {time_condition.replace('o.archived_at', 'o.archived_at')}
+                     ORDER BY 
+                       CASE 
+                         WHEN h.range_end IS NOT NULL 
+                         THEN ABS(EXTRACT(EPOCH FROM (o.archived_at - h.range_end)))
+                         ELSE 0
+                       END ASC,
+                       o.archived_at DESC
+                     LIMIT 1
+                    ) as end_nmv,
+                    -- Latest metrics within time range
+                    (SELECT o.views FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as views,
+                    (SELECT o.pcu FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as pcu,
+                    (SELECT o.placed_order FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as placed_order,
+                    (SELECT o.gpm FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as gpm,
+                    (SELECT o.abs FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as abs,
+                    (SELECT o.buyers FROM overview_history o WHERE o.session_id = h.session_id ORDER BY o.archived_at DESC LIMIT 1) as buyers
+                FROM host_time_ranges h
+            )
+            SELECT 
+                host_name,
+                COUNT(DISTINCT session_id) as total_sessions,
+                COALESCE(SUM(COALESCE(duration_minutes, 0)), 0)::INTEGER as total_minutes,
+                -- Achieved GMV = End - Start for this host's time range
+                COALESCE(SUM(GREATEST(COALESCE(end_gmv, 0) - COALESCE(start_gmv, 0), 0)), 0)::BIGINT as achieved_gmv,
+                COALESCE(SUM(GREATEST(COALESCE(end_nmv, 0) - COALESCE(start_nmv, 0), 0)), 0)::BIGINT as achieved_nmv,
+                -- Total GMV (end values)
+                COALESCE(SUM(end_gmv), 0)::BIGINT as total_gmv,
+                COALESCE(SUM(end_nmv), 0)::BIGINT as total_nmv,
+                -- Averages
+                COALESCE(SUM(placed_order), 0)::INTEGER as total_orders,
+                COALESCE(AVG(views), 0)::INTEGER as avg_views,
+                COALESCE(AVG(pcu), 0)::INTEGER as avg_pcu,
+                COALESCE(AVG(gpm), 0)::INTEGER as avg_gpm,
+                COALESCE(AVG(abs), 0)::INTEGER as avg_abs,
+                COALESCE(AVG(buyers), 0)::INTEGER as avg_buyers,
+                COALESCE(MAX(views), 0)::INTEGER as max_views,
+                COALESCE(MAX(pcu), 0)::INTEGER as max_pcu,
+                -- DEBUG: Include start and end GMV for troubleshooting
+                COALESCE(SUM(start_gmv), 0)::BIGINT as debug_start_gmv,
+                COALESCE(SUM(end_gmv), 0)::BIGINT as debug_end_gmv
+            FROM host_gmv_metrics
+            GROUP BY host_name
+            ORDER BY achieved_gmv DESC, total_gmv DESC
+        '''
+        
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        
+        # Debug: Print detailed results with start/end GMV
+        print(f"[HOST DEBUG] Performance data ({len(results)} hosts):")
+        for r in results:
+            start_gmv = r.get('debug_start_gmv', 0)
+            end_gmv = r.get('debug_end_gmv', 0)
+            achieved = r.get('achieved_gmv', 0)
+            print(f"  {r['host_name']}: start_gmv={start_gmv:,}, end_gmv={end_gmv:,}, achieved={achieved:,}")
+        
+        conn.close()
+        
+        return [dict(r) for r in results]
+        
+    except Exception as e:
+        print(f"[HOST] Error getting performance data: {e}")
+        return []
+
+def get_all_hosts():
+    """Get list of all unique host names"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT DISTINCT host_name FROM host_schedule ORDER BY host_name')
+        hosts = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return hosts
+    except Exception as e:
+        print(f"[HOST] Error getting hosts: {e}")
+        return []
+
 
 def get_config(key):
     """Get config value by key"""
@@ -378,6 +787,323 @@ def set_config(key, value):
     ''', (key, value))
     conn.commit()
     conn.close()
+
+# ============== Brand Portal Authentication Helpers ==============
+
+def hash_password(password):
+    """Hash password using bcrypt"""
+    if not BCRYPT_AVAILABLE:
+        raise Exception("bcrypt not available - cannot hash password")
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def check_password(password, password_hash):
+    """Verify password against hash"""
+    if not BCRYPT_AVAILABLE:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    except:
+        return False
+
+def create_brand_user(email, password, full_name=None):
+    """Create new brand user in database"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        password_hash = hash_password(password)
+        cursor.execute('''
+            INSERT INTO brand_users (email, password_hash, full_name)
+            VALUES (%s, %s, %s)
+            RETURNING id
+        ''', (email, password_hash, full_name))
+        user_id = cursor.fetchone()[0]
+        conn.commit()
+        print(f"[BRAND AUTH] Created brand user: {email}")
+        return user_id
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        print(f"[BRAND AUTH] User already exists: {email}")
+        return None
+    except Exception as e:
+        conn.rollback()
+        print(f"[BRAND AUTH] Error creating user: {e}")
+        return None
+    finally:
+        conn.close()
+
+def validate_brand_login(email, password):
+    """Validate brand user login credentials"""
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('''
+        SELECT * FROM brand_users 
+        WHERE email = %s AND is_active = TRUE
+    ''', (email,))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if not user:
+        return None
+    
+    if check_password(password, user['password_hash']):
+        # Update last login
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE brand_users SET last_login = NOW()
+            WHERE id = %s
+        ''', (user['id'],))
+        conn.commit()
+        conn.close()
+        return dict(user)
+    
+    return None
+
+def get_user_brands(user_email):
+    """Get list of brand names assigned to a user"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT brand_name FROM user_brand_mapping
+        WHERE user_email = %s
+        ORDER BY brand_name
+    ''', (user_email,))
+    brands = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return brands
+
+def assign_brand_to_user(user_email, brand_name):
+    """Assign a brand to a user"""
+    conn = get_db ()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO user_brand_mapping (user_email, brand_name)
+            VALUES (%s, %s)
+            ON CONFLICT (user_email, brand_name) DO NOTHING
+        ''', (user_email, brand_name))
+        conn.commit()
+        print(f"[BRAND] Assigned {brand_name} to {user_email}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[BRAND] Error assigning brand: {e}")
+        return False
+    finally:
+        conn.close()
+
+def remove_brand_from_user(user_email, brand_name):
+    """Remove a brand assignment from a user"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        DELETE FROM user_brand_mapping
+        WHERE user_email = %s AND brand_name = %s
+    ''', (user_email, brand_name))
+    conn.commit()
+    conn.close()
+    print(f"[BRAND] Removed {brand_name} from {user_email}")
+    return True
+
+def get_all_brand_users():
+    """Get all brand users with their assigned brands"""
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('''
+        SELECT 
+            bu.id,
+            bu.email,
+            bu.full_name,
+            bu.is_active,
+            bu.created_at,
+            bu.last_login,
+            ARRAY_AGG(DISTINCT ubm.brand_name) FILTER (WHERE ubm.brand_name IS NOT NULL) as brands,
+            ARRAY_AGG(DISTINCT usm.shop_id) FILTER (WHERE usm.shop_id IS NOT NULL) as shop_ids,
+            ARRAY_AGG(DISTINCT usm.brand_label) FILTER (WHERE usm.brand_label IS NOT NULL) as brand_labels
+        FROM brand_users bu
+        LEFT JOIN user_brand_mapping ubm ON bu.email = ubm.user_email
+        LEFT JOIN user_shop_mapping usm ON bu.email = usm.user_email
+        GROUP BY bu.id, bu.email, bu.full_name, bu.is_active, bu.created_at, bu.last_login
+        ORDER BY bu.created_at DESC
+    ''')
+    users = cursor.fetchall()
+    conn.close()
+    return [dict(u) for u in users]
+
+def delete_brand_user(user_id):
+    """Delete a brand user and all their brand assignments"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Get email first
+        cursor.execute('SELECT email FROM brand_users WHERE id = %s', (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False
+        email = result[0]
+        
+        # Delete brand mappings
+        cursor.execute('DELETE FROM user_brand_mapping WHERE user_email = %s', (email,))
+        # Delete user
+        cursor.execute('DELETE FROM brand_users WHERE id = %s', (user_id,))
+        conn.commit()
+        print(f"[BRAND] Deleted user {email}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[BRAND] Error deleting user: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_brand_user_password(user_id, new_password):
+    """Update brand user password"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        password_hash = hash_password(new_password)
+        cursor.execute('''
+            UPDATE brand_users SET password_hash = %s
+            WHERE id = %s
+        ''', (password_hash, user_id))
+        conn.commit()
+        print(f"[BRAND] Updated password for user ID {user_id}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[BRAND] Error updating password: {e}")
+        return False
+    finally:
+        conn.close()
+
+def toggle_brand_user_status(user_id, is_active):
+    """Enable or disable a brand user account"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE brand_users SET is_active = %s
+        WHERE id = %s
+    ''', (is_active, user_id))
+    conn.commit()
+    conn.close()
+    status = "activated" if is_active else "deactivated"
+    print(f"[BRAND] User ID {user_id} {status}")
+    return True
+
+# ============== Shop ID Management Functions (NEW) ==============
+
+def assign_shop_to_user(user_email, shop_id, brand_label=None):
+    """Assign a shop ID to a user with optional brand label"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO user_shop_mapping (user_email, shop_id, brand_label)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_email, shop_id) DO UPDATE
+            SET brand_label = EXCLUDED.brand_label
+        ''', (user_email, shop_id, brand_label))
+        conn.commit()
+        print(f"[SHOP] Assigned shop {shop_id} to {user_email}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[SHOP] Error assigning shop: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_shops(user_email):
+    """Get list of shop IDs and brand label assigned to a user"""
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('''
+        SELECT shop_id, brand_label
+        FROM user_shop_mapping
+        WHERE user_email = %s
+        ORDER BY brand_label, shop_id
+    ''', (user_email,))
+    shops = cursor.fetchall()
+    conn.close()
+    return [dict(s) for s in shops]
+
+def remove_shop_from_user(user_email, shop_id):
+    """Remove a shop ID assignment from user"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        DELETE FROM user_shop_mapping
+        WHERE user_email = %s AND shop_id = %s
+    ''', (user_email, shop_id))
+    conn.commit()
+    conn.close()
+    print(f"[SHOP] Removed shop {shop_id} from {user_email}")
+    return True
+
+def update_user_shops(user_email, shop_data):
+    """
+    Update all shop assignments for a user
+    shop_data: list of {'shop_id': 'xxx', 'brand_label': 'yyy'}
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Remove all current shop assignments
+        cursor.execute('DELETE FROM user_shop_mapping WHERE user_email = %s', (user_email,))
+        
+        # Add new shop assignments
+        for shop in shop_data:
+            shop_id = shop.get('shop_id')
+            brand_label = shop.get('brand_label')
+            if shop_id:
+                cursor.execute('''
+                    INSERT INTO user_shop_mapping (user_email, shop_id, brand_label)
+                    VALUES (%s, %s, %s)
+                ''', (user_email, shop_id, brand_label))
+        
+        conn.commit()
+        print(f"[SHOP] Updated {len(shop_data)} shop(s) for {user_email}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[SHOP] Error updating shops: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_brand_user_info(user_id, email=None, full_name=None, password=None):
+    """Update brand user information"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        updates = []
+        params = []
+        
+        if email is not None:
+            updates.append("email = %s")
+            params.append(email)
+        if full_name is not None:
+            updates.append("full_name = %s")
+            params.append(full_name)
+        if password is not None:
+            updates.append("password_hash = %s")
+            params.append(hash_password(password))
+        
+        if not updates:
+            return False
+        
+        params.append(user_id)
+        query = f"UPDATE brand_users SET {', '.join(updates)} WHERE id = %s"
+        cursor.execute(query, params)
+        conn.commit()
+        print(f"[BRAND] Updated user ID {user_id}")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[BRAND] Error updating user info: {e}")
+        return False
+    finally:
+        conn.close()
 
 # ============== Google Sheets Functions ==============
 
@@ -1268,11 +1994,164 @@ def admin_logout():
     session.pop('user', None)
     return redirect(url_for('index'))
 
+# ============== Host Performance Routes (NEW) ==============
+
+@app.route('/admin/host-performance')
+@admin_required
+def host_performance():
+    """Host Performance Report page"""
+    # Get config
+    sheet_url = get_config('host_schedule_sheet_url') or ''
+    last_sync = get_config('host_schedule_last_sync') or 'Chưa sync'
+    
+    # Get all hosts for filter
+    hosts = get_all_hosts()
+    
+    return render_template('host_performance.html', 
+                         sheet_url=sheet_url, 
+                         last_sync=last_sync,
+                         hosts=hosts)
+
+@app.route('/api/host/sync-schedule', methods=['POST'])
+@admin_required
+def api_sync_host_schedule():
+    """API: Sync host schedule from Google Sheets"""
+    data = request.get_json()
+    sheet_url = data.get('sheet_url', '').strip()
+    
+    if not sheet_url:
+        return jsonify({'success': False, 'message': 'Sheet URL is required'}), 400
+    
+    # Sync from Google Sheets
+    success, message, count = sync_host_schedule_from_sheet(sheet_url)
+    
+    if success:
+        # Save config
+        set_config('host_schedule_sheet_url', sheet_url)
+        set_config('host_schedule_last_sync', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    
+    return jsonify({
+        'success': success,
+        'message': message,
+        'count': count
+    })
+
+@app.route('/api/host/performance')
+@admin_required
+def api_host_performance():
+    """API: Get host performance metrics"""
+    host_filter = request.args.get('host')
+    time_filter = request.args.get('time', 'all')
+    
+    # Get performance data
+    data = get_host_performance_data(host_filter, time_filter)
+    
+    return jsonify({
+        'success': True,
+        'data': data,
+        'count': len(data)
+    })
+
+@app.route('/api/host/debug')
+@admin_required
+def api_host_debug():
+    """DEBUG: Check host_schedule raw data"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT session_id, host_name, session_date, start_time, end_time, duration_minutes
+            FROM host_schedule
+            ORDER BY session_date DESC, start_time
+            LIMIT 20
+        ''')
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': [dict(r) for r in results]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/host/export')
+@admin_required
+def api_host_export():
+    """API: Export host performance to CSV"""
+    import io
+    import csv
+    from flask import Response
+    
+    host_filter = request.args.get('host')
+    time_filter = request.args.get('time', 'all')
+    
+    # Get performance data
+    data = get_host_performance_data(host_filter, time_filter)
+    
+    # Create CSV
+    output = io.StringIO()
+    if data:
+        writer = csv.DictWriter(output, fieldnames=data[0].keys())
+        writer.writeheader()
+        writer.writerows(data)
+    
+    # Return as downloadable file
+    response = Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename=host_performance_{datetime.now().strftime("%Y%m%d")}.csv'
+        }
+    )
+    return response
+
 # ============== Google OAuth Routes ==============
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
-    """Public login page"""
+    """Public login page - handles both OAuth (GET) and Brand login (POST)"""
+    if request.method == 'POST':
+        # Brand email/password login
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        
+        if not email or not password:
+            return render_template('login.html', error='Vui lòng nhập email và mật khẩu')
+        
+        # Validate brand credentials
+        user = validate_brand_login(email, password)
+        
+        if not user:
+            return render_template('login.html', error='Email hoặc mật khẩu không đúng')
+        
+        # Get shop IDs assigned to this user (NEW: shop-based filtering)
+        shops = get_user_shops(email)
+        
+        if not shops:
+            return render_template('login.html', error='Tài khoản chưa được gán shop ID nào')
+        
+        # Extract shop IDs and brand label
+        shop_ids = [s['shop_id'] for s in shops]
+        brand_label = shops[0]['brand_label'] if shops and shops[0].get('brand_label') else 'Brand'
+        
+        # Store brand user in session
+        session['brand_user'] = {
+            'id': user['id'],
+            'email': email,
+            'full_name': user.get('full_name'),
+            'shop_ids': shop_ids,
+            'brand_label': brand_label
+        }
+        
+        print(f"[BRAND LOGIN] User {email} logged in with {len(shop_ids)} shop ID(s)")
+        
+        # Redirect to brand portal
+        return redirect(url_for('brand_portal'))
+    
+    # GET request - show login page
     error = request.args.get('error')
     return render_template('login.html', error=error)
 
@@ -1367,11 +2246,265 @@ def logout():
     session.pop('is_admin', None)
     return redirect(url_for('index'))
 
+# ============== Brand Portal Routes ==============
+
+@app.route('/brand')
+def brand_portal():
+    """Brand Portal - GMV Performance Dashboard for Brands"""
+    # Check if brand user is logged in
+    if 'brand_user' not in session:
+        return redirect(url_for('login_page', error='Vui lòng đăng nhập'))
+    
+    brand_user = session['brand_user']
+    shop_ids = brand_user.get('shop_ids', [])
+    
+    if not shop_ids:
+        return redirect(url_for('login_page', error='Tài khoản chưa được gán shop ID'))
+    
+    return render_template('brand.html', 
+        user=brand_user,
+        shop_ids=shop_ids,
+        brand_label=brand_user.get('brand_label', 'Brand')
+    )
+
+@app.route('/brand/logout')
+def brand_logout():
+    """Logout brand user"""
+    session.pop('brand_user', None)
+    return redirect(url_for('login_page'))
+
+# ============== Staff Dashboard ==============
+
 @app.route('/staff')
 @login_required
 def staff_dashboard():
     """Staff Dashboard - search by Shop ID or Product Name"""
     return render_template('staff.html')
+
+# ============== Brand Portal API ==============
+
+@app.route('/api/brand/gmv-data')
+def api_brand_gmv_data():
+    """API: Get GMV data filtered by shop IDs (NEW: shop-based filtering)"""
+    # Check brand authentication
+    if 'brand_user' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    brand_user = session['brand_user']
+    user_shop_ids = brand_user.get('shop_ids', [])
+    
+    if not user_shop_ids:
+        return jsonify({'success': False, 'error': 'No shop IDs assigned'}), 403
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Get GMV data for shops assigned to this user
+        # Filter by shop_id directly (no need for deal_list JOIN)
+        query = '''
+            SELECT 
+                g.item_id,
+                g.item_name,
+                g.revenue,
+                g.confirmed_revenue,
+                g.clicks,
+                g.orders,
+                g.add_to_cart,
+                g.shop_id
+            FROM gmv_data g
+            WHERE g.shop_id = ANY(%s)
+            ORDER BY g.revenue DESC
+        '''
+        
+        cursor.execute(query, (user_shop_ids,))
+        data = cursor.fetchall()
+        
+        # Get stats for these shops
+        stats_query = '''
+            SELECT 
+                COUNT(DISTINCT g.item_id) as total_products,
+                SUM(g.revenue) as total_gmv,
+                SUM(g.confirmed_revenue) as total_nmv,
+                COUNT(DISTINCT g.shop_id) as total_shops
+            FROM gmv_data g
+            WHERE g.shop_id = ANY(%s)
+        '''
+        
+        cursor.execute(stats_query, (user_shop_ids,))
+        stats = cursor.fetchone()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': [dict(row) for row in data],
+            'stats': dict(stats) if stats else {}
+        })
+        
+    except Exception as e:
+        print(f"[BRAND API ERROR] {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============== Brand User Management API (Admin Only) ==============
+
+@app.route('/api/brand-users', methods=['GET'])
+@admin_required
+def api_get_brand_users():
+    """API: Get all brand users"""
+    try:
+        users = get_all_brand_users()
+        return jsonify({'success': True, 'users': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brand-users', methods=['POST'])
+@admin_required
+def api_create_brand_user():
+    """API: Create new brand user"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        full_name = data.get('full_name', '').strip()
+        brands = data.get('brands', [])
+        
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email và password là bắt buộc'}), 400
+        
+        # Create user
+        user_id = create_brand_user(email, password, full_name)
+        
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Email đã tồn tại hoặc lỗi tạo user'}), 400
+        
+        # Assign shop IDs with brand label (NEW logic)
+        brand_label = data.get('brand_label', '').strip()
+        shop_ids = data.get('shop_ids', [])
+        
+        for shop_id in shop_ids:
+            if shop_id:
+                assign_shop_to_user(email, shop_id, brand_label)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã tạo brand user {email} với {len(shop_ids)} shop ID(s)'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brand-users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def api_delete_brand_user(user_id):
+    """API: Delete brand user"""
+    try:
+        success = delete_brand_user(user_id)
+        if success:
+            return jsonify({'success': True, 'message': 'Đã xóa brand user'})
+        else:
+            return jsonify({'success': False, 'error': 'Không tìm thấy user'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brand-users/<int:user_id>', methods=['PUT'])
+@admin_required
+def api_update_brand_user(user_id):
+    """API: Update brand user info and shop IDs"""
+    try:
+        data = request.get_json()
+        
+        # Get user email first
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT email FROM brand_users WHERE id = %s', (user_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        old_email = result[0]
+        
+        # Update user info (email, full_name, password)
+        new_email = data.get('email')
+        full_name = data.get('full_name')
+        password = data.get('password')
+        
+        if new_email or full_name or password:
+            success = update_brand_user_info(user_id, email=new_email, full_name=full_name, password=password)
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to update user info'}), 500
+        
+        # Determine which email to use for shop assignments
+        working_email = new_email if new_email else old_email
+        
+        # Update shop IDs if provided
+        if 'shop_ids' in data:
+            shop_ids = data.get('shop_ids', [])
+            brand_label = data.get('brand_label', '')
+            
+            # Remove all current shop assignments
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM user_shop_mapping WHERE user_email = %s', (working_email,))
+            
+            # Add new shop assignments
+            for shop_id in shop_ids:
+                if shop_id:
+                    cursor.execute('''
+                        INSERT INTO user_shop_mapping (user_email, shop_id, brand_label)
+                        VALUES (%s, %s, %s)
+                    ''', (working_email, shop_id, brand_label))
+            
+            conn.commit()
+            conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Đã cập nhật brand user'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brand-users/<int:user_id>/brands', methods=['PUT'])
+@admin_required
+def api_update_brand_user_brands(user_id):
+    """API: Update brands assigned to a brand user"""
+    try:
+        data = request.get_json()
+        new_brands = data.get('brands', [])
+        
+        # Get user email
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT email FROM brand_users WHERE id = %s', (user_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        email = result[0]
+        
+        # Remove all current brand assignments
+        current_brands = get_user_brands(email)
+        for brand in current_brands:
+            remove_brand_from_user(email, brand)
+        
+        # Add new brand assignments
+        for brand in new_brands:
+            if brand:
+                assign_brand_to_user(email, brand)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Đã cập nhật brands cho user'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============== User Management API ==============
 

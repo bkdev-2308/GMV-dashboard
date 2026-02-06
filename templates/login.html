@@ -160,13 +160,47 @@
         </a>
 
         <div class="divider">
+            <span>hoặc Brand Login</span>
+        </div>
+
+        <!-- Brand Email/Password Login Form -->
+        <form method="POST" action="/login" style="text-align: left; margin-bottom: 1.5rem;">
+            <div style="margin-bottom: 1rem;">
+                <label
+                    style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Email</label>
+                <input type="email" name="email" placeholder="your@email.com" required
+                    style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 0.95rem; transition: border-color 0.2s;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label
+                    style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Mật
+                    khẩu</label>
+                <input type="password" name="password" placeholder="Nhập mật khẩu" required
+                    style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 0.95rem; transition: border-color 0.2s;">
+            </div>
+            <button type="submit"
+                style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                    style="width: 1.25rem; height: 1.25rem;">
+                    <path
+                        d="M5.223 2.25c-.497 0-.974.198-1.325.55l-1.3 1.298A3.75 3.75 0 0 0 7.5 9.75c.627.47 1.406.75 2.25.75.844 0 1.624-.28 2.25-.75.626.47 1.406.75 2.25.75.844 0 1.623-.28 2.25-.75a3.75 3.75 0 0 0 4.902-5.652l-1.3-1.299a1.875 1.875 0 0 0-1.325-.549H5.223Z" />
+                    <path fill-rule="evenodd"
+                        d="M3 20.25v-8.755c1.42.674 3.08.673 4.5 0A5.234 5.234 0 0 0 9.75 12c.804 0 1.568-.182 2.25-.506a5.234 5.234 0 0 0 2.25.506c.804 0 1.567-.182 2.25-.506 1.42.674 3.08.675 4.5.001v8.755h.75a.75.75 0 0 1 0 1.5H2.25a.75.75 0 0 1 0-1.5H3Zm3-6a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm8.25-.75a.75.75 0 0 0-.75.75v5.25c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-5.25a.75.75 0 0 0-.75-.75h-3Z"
+                        clip-rule="evenodd" />
+                </svg>
+                Brand Login
+            </button>
+        </form>
+
+        <div class="divider">
             <span>hoặc</span>
         </div>
 
         <a href="/admin/login" class="admin-link">Đăng nhập Admin</a>
 
         <div class="note">
-            ℹ️ Chỉ email <strong>@beyondk.live</strong> mới có thể đăng nhập
+            ℹ️ Staff: Dùng Google với email <strong>@beyondk.live</strong><br>
+            Brand: Dùng email/password do admin cấp
         </div>
 
         <p class="footer">© 2026 BeyondK Network</p>

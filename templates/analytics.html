@@ -508,6 +508,15 @@
                     </svg>
                     <span class="nav-text">History</span>
                 </a>
+                <a href="/admin/host-performance" class="nav-item" title="Host Performance">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span class="nav-text">Host Performance</span>
+                </a>
             </nav>
             {% if session.get('user') and session.get('user').get('role') == 'bod' %}
             <a href="/admin/setting" class="nav-item" title="Settings">
@@ -523,7 +532,14 @@
         <main class="main-content">
             <header class="page-header">
                 <div class="page-title-section">
-                    <h1>📊 Data Import & Analytics</h1>
+                    <h1 style="display: flex; align-items: center; gap: 0.5rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                            style="width: 1.75rem; height: 1.75rem;">
+                            <path
+                                d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z" />
+                        </svg>
+                        Data Import & Analytics
+                    </h1>
                     <p>Import dữ liệu từ Google Sheets và phân tích chi tiết theo Item ID</p>
                 </div>
             </header>
