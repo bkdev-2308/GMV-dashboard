@@ -2192,7 +2192,7 @@ def create_app():
 def run_web_mode():
     """Chạy Flask app với development server"""
     app = create_app()
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 4000))
     debug = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
     app.run(host='0.0.0.0', port=port, debug=debug)
 

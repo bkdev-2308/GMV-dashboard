@@ -20,3 +20,14 @@ out/
 # IDE
 .idea/
 .vscode/
+
+# Agent
+.agent/
+.claude/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+.cursorrules
+
+pyproject.toml
+uv.lock

@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+/* ============================================
+   BeyondK Dashboard - CSS Variables & Theme
+   Ported from dashboard-all.css
+   ============================================ */
+
+@theme {
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f5f9;
+  --color-accent: #3b82f6;
+  --color-accent-light: #eff6ff;
+  --color-success: #10b981;
+  --color-success-light: #ecfdf5;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fffbeb;
+
+  /* Tet Theme Colors */
+  --color-tet-crimson: #8b0000;
+  --color-tet-red: #c41e3a;
+  --color-tet-maroon: #5c0000;
+  --color-tet-dark: #2d0000;
+  --color-tet-gold: #ffd700;
+  --color-tet-gold-light: #ffe55c;
+  --color-tet-cream: #fff8dc;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+/* Animations */
+@keyframes slide-in-from-top-2 {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: slide-in-from-top-2 0.2s ease-out;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
