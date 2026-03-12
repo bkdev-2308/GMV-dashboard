@@ -4,7 +4,10 @@ import { api } from "@/services/api";
 import { authService } from "@/services/auth.service";
 import { formatCurrency } from "@/utils/format";
 import { Spinner } from "@/components/ui/Spinner";
-import { DollarSign, Package, Store, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, LogOut } from "lucide-react";
+import { Search, DollarSign, Package, Store, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, LogOut } from "lucide-react";
+
+const SHOPEE_CDN = "https://mms.img.susercontent.com/";
+const getImageUrl = (img: string) => img.startsWith("http") ? img : `${SHOPEE_CDN}${img}`;
 
 interface BrandProduct {
   item_id: string;
@@ -29,25 +32,39 @@ type SortKey = "revenue" | "confirmed_revenue" | "clicks" | "orders" | "add_to_c
 export function BrandPage() {
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("");
+  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["brand-data"],
-    queryFn: () =>
-      api.get<{ success: boolean; data: BrandProduct[]; stats: BrandStats }>(
-        "/api/brand/gmv-data"
-      ),
+    queryKey: ["brand-data", sessionFilter],
+    queryFn: () => {
+      const url = sessionFilter ? `/api/brand/gmv-data?session_id=${sessionFilter}` : "/api/brand/gmv-data";
+      return api.get<{ success: boolean; data: BrandProduct[]; stats: BrandStats }>(url);
+    },
   });
+
+  const { data: sessionsData } = useQuery({
+    queryKey: ["brand-sessions"],
+    queryFn: () => api.get<{ success: boolean; sessions: { session_id: string; session_title: string }[] }>("/api/sessions"),
+  });
+  const sessions = sessionsData?.success ? sessionsData.sessions : [];
 
   const products = data?.success ? data.data : [];
   const stats = data?.success ? data.stats : null;
 
   const sorted = useMemo(() => {
-    return [...products].sort((a, b) => {
+    let filtered = [...products];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => p.item_name.toLowerCase().includes(q) || p.shop_id.toLowerCase().includes(q));
+    }
+    return filtered.sort((a, b) => {
       const aVal = a[sortKey] as number;
       const bVal = b[sortKey] as number;
       return sortDir === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [products, sortKey, sortDir]);
+  }, [products, sortKey, sortDir, searchQuery]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -86,13 +103,25 @@ export function BrandPage() {
           <h1 className="text-2xl font-bold">Brand Portal</h1>
           <p className="mt-1 text-sm text-white/80">{stats?.total_shops || 0} shop được gán</p>
         </div>
-        <button
-          onClick={() => authService.brandLogout()}
-          className="flex items-center gap-2 rounded-lg bg-white/20 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/30"
-        >
-          <LogOut className="h-4 w-4" />
-          Đăng xuất
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={sessionFilter}
+            onChange={(e) => setSessionFilter(e.target.value)}
+            className="rounded-lg bg-white/20 px-3 py-1.5 text-sm text-white focus:outline-none"
+          >
+            <option value="">Tất cả phiên</option>
+            {sessions.map(s => (
+              <option key={s.session_id} value={s.session_id}>{s.session_title || s.session_id}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => authService.brandLogout()}
+            className="flex items-center gap-2 rounded-lg bg-white/20 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/30"
+          >
+            <LogOut className="h-4 w-4" />
+            Đăng xuất
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -137,6 +166,18 @@ export function BrandPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Tìm sản phẩm hoặc shop..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-blue-400 focus:outline-none"
+        />
+      </div>
+
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
@@ -162,7 +203,28 @@ export function BrandPage() {
               {sorted.map((p) => (
                 <tr key={p.item_id} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="max-w-[200px] px-4 py-3">
-                    <span className="truncate font-medium text-slate-800" title={p.item_name}>{p.item_name}</span>
+                    <div className="flex items-center gap-3">
+                      {(p as BrandProduct & { cover_image?: string }).cover_image && (
+                        <div
+                          className="relative"
+                          onMouseEnter={() => setHoveredImage(p.item_id)}
+                          onMouseLeave={() => setHoveredImage(null)}
+                        >
+                          <img
+                            src={getImageUrl((p as BrandProduct & { cover_image?: string }).cover_image!)}
+                            alt=""
+                            className="h-9 w-9 rounded-lg border border-slate-200 object-cover"
+                            loading="lazy"
+                          />
+                          {hoveredImage === p.item_id && (
+                            <div className="absolute left-10 top-0 z-30 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                              <img src={getImageUrl((p as BrandProduct & { cover_image?: string }).cover_image!)} alt={p.item_name} className="h-[180px] w-[180px] object-cover" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <span className="truncate font-medium text-slate-800" title={p.item_name}>{p.item_name}</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{p.shop_id}</span>

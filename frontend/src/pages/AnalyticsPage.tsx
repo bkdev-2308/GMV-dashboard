@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { formatCurrency } from "@/utils/format";
-import { Upload, Search, Loader2 } from "lucide-react";
+import { Upload, Search, Loader2, BarChart3 } from "lucide-react";
+import { RevenueChart } from "@/components/dashboard/RevenueChart";
+import { CategoryChart } from "@/components/dashboard/CategoryChart";
 
 interface SheetName {
   name: string;
@@ -69,9 +71,40 @@ export function AnalyticsPage() {
     if (itemId.trim()) searchMutation.mutate(itemId.trim());
   };
 
+  // Top products & category charts
+  const { data: topProductsData } = useQuery({
+    queryKey: ["analytics-top-products"],
+    queryFn: () => api.get<{ success: boolean; data: { item_id: string; item_name: string; revenue: number; confirmed_revenue: number; clicks: number; add_to_cart: number; orders: number }[] }>("/api/analytics/top-products"),
+  });
+  const { data: categoryData } = useQuery({
+    queryKey: ["analytics-category"],
+    queryFn: () => api.get<{ success: boolean; data: { cluster: string; total_revenue: number }[] }>("/api/analytics/category-distribution"),
+  });
+
+  const topProducts = topProductsData?.success ? topProductsData.data : [];
+  // Map for RevenueChart/CategoryChart which expect GmvProduct shape
+  const chartProducts = topProducts.map(p => ({ ...p, items_sold: 0, session_title: "", cover_image: "", ctr: 0, link_sp: "", shop_id: "", scraped_at: "", session_id: "", cluster: "", datetime: "" }));
+  const categoryProducts = categoryData?.success
+    ? categoryData.data.flatMap(c => Array.from({ length: 1 }, () => ({ item_id: c.cluster, item_name: c.cluster, cluster: c.cluster, revenue: c.total_revenue, confirmed_revenue: 0, clicks: 0, add_to_cart: 0, orders: 0, items_sold: 0, cover_image: "", ctr: 0, link_sp: "", shop_id: "", scraped_at: "", session_id: "", session_title: "", datetime: "" })))
+    : [];
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+
+      {/* Charts Section */}
+      {(chartProducts.length > 0 || categoryProducts.length > 0) && (
+        <div>
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-700">
+            <BarChart3 className="h-5 w-5 text-blue-500" />
+            Tổng quan sản phẩm
+          </h2>
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            {chartProducts.length > 0 && <RevenueChart products={chartProducts} />}
+            {categoryProducts.length > 0 && <CategoryChart products={categoryProducts} />}
+          </div>
+        </div>
+      )}
 
       {/* Import Section */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">

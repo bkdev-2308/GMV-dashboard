@@ -39,6 +39,8 @@ export interface GmvProduct {
   datetime: string;
   session_id?: string;
   session_title?: string;
+  gia_live?: number;
+  giam_stock?: number;
 }
 
 // Dashboard stats from /api/all-data

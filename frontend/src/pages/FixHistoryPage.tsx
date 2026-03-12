@@ -134,8 +134,8 @@ export function FixHistoryPage() {
           </div>
 
           <div className="divide-y divide-slate-100">
-            {sessions.map((session) => (
-              <div key={session.session_id} className="px-6 py-4">
+            {sessions.map((session, index) => (
+              <div key={`fix-history-${session.session_id}-${index}`} className="px-6 py-4">
                 {editingSession === session.session_id ? (
                   <div className="flex items-center gap-3">
                     <input

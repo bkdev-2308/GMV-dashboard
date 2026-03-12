@@ -2300,9 +2300,20 @@ def api_brand_gmv_data():
         conn = get_db()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Get GMV data for shops assigned to this user
-        # Filter by shop_id directly (no need for deal_list JOIN)
-        query = '''
+        # Optional session_id filter from BrandPage
+        session_id_filter = request.args.get('session_id', '')
+
+        # Base WHERE clause: shop_id filter
+        where_clauses = ['g.shop_id = ANY(%s)']
+        params = [user_shop_ids]
+
+        if session_id_filter:
+            where_clauses.append('g.session_id = %s')
+            params.append(session_id_filter)
+
+        where_sql = ' AND '.join(where_clauses)
+
+        query = f'''
             SELECT 
                 g.item_id,
                 g.item_name,
@@ -2313,25 +2324,25 @@ def api_brand_gmv_data():
                 g.add_to_cart,
                 g.shop_id
             FROM gmv_data g
-            WHERE g.shop_id = ANY(%s)
+            WHERE {where_sql}
             ORDER BY g.revenue DESC
         '''
-        
-        cursor.execute(query, (user_shop_ids,))
+
+        cursor.execute(query, params)
         data = cursor.fetchall()
-        
-        # Get stats for these shops
-        stats_query = '''
+
+        # Get stats
+        stats_query = f'''
             SELECT 
                 COUNT(DISTINCT g.item_id) as total_products,
                 SUM(g.revenue) as total_gmv,
                 SUM(g.confirmed_revenue) as total_nmv,
                 COUNT(DISTINCT g.shop_id) as total_shops
             FROM gmv_data g
-            WHERE g.shop_id = ANY(%s)
+            WHERE {where_sql}
         '''
-        
-        cursor.execute(stats_query, (user_shop_ids,))
+
+        cursor.execute(stats_query, params)
         stats = cursor.fetchone()
         
         conn.close()
@@ -2814,8 +2825,9 @@ def api_top_gmv():
             COALESCE(SUM(orders), 0) as total_orders,
             COALESCE(SUM(items_sold), 0) as total_items_sold,
             COALESCE(SUM(confirmed_revenue), 0) as total_confirmed_revenue,
-            COUNT(CASE WHEN link_sp IS NOT NULL AND link_sp != '' THEN 1 END) as with_link
-        FROM gmv_data
+           COUNT(CASE WHEN COALESCE(d.shop_id, g.shop_id) IS NOT NULL AND COALESCE(d.shop_id, g.shop_id) != '' THEN 1 END) as with_link
+        FROM gmv_data g
+        LEFT JOIN deal_list d ON g.item_id = d.item_id
         {where_sql}
     '''
     cursor.execute(stats_query, params)
@@ -2998,8 +3010,9 @@ def api_all_data():
             COALESCE(SUM(orders), 0) as total_orders,
             COALESCE(SUM(items_sold), 0) as total_items_sold,
             COALESCE(SUM(confirmed_revenue), 0) as total_confirmed_revenue,
-            COUNT(CASE WHEN link_sp IS NOT NULL AND link_sp != '' THEN 1 END) as with_link
+            COUNT(CASE WHEN COALESCE(d.shop_id, g.shop_id) IS NOT NULL AND COALESCE(d.shop_id, g.shop_id) != '' THEN 1 END) as with_link
         FROM gmv_data g
+        LEFT JOIN {deallist_table} d ON g.item_id = d.item_id
         {where_clause}
     ''', params)
     stats_row = cursor.fetchone()
@@ -3548,6 +3561,45 @@ def api_history_data():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e), 'data': []})
+
+@app.route('/api/history/export')
+@login_required
+def api_history_export():
+    """API: Export historical data as CSV"""
+    session_id = request.args.get('session_id', '')
+    archived_at = request.args.get('archived_at', '')
+
+    if not session_id or not archived_at:
+        return jsonify({'success': False, 'error': 'session_id and archived_at are required'}), 400
+
+    try:
+        data = get_history_data(DATABASE_URL, session_id, archived_at)
+
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['STT', 'Item ID', 'Ten san pham', 'GMV', 'NMV', 'Clicks', 'ATC', 'Orders'])
+        for i, row in enumerate(data, 1):
+            writer.writerow([
+                i,
+                row.get('item_id', ''),
+                row.get('item_name', ''),
+                row.get('revenue', 0),
+                row.get('confirmed_revenue', 0),
+                row.get('clicks', 0),
+                row.get('add_to_cart', 0),
+                row.get('orders', 0),
+            ])
+
+        from flask import Response
+        filename = f"history_{session_id}_{archived_at[:10]}.csv"
+        return Response(
+            output.getvalue().encode('utf-8-sig'),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============== Overview Metrics API Routes ==============
 

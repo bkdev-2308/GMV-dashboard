@@ -24,7 +24,7 @@ const metricConfig: Record<Metric, { label: string; color: string }> = {
   orders: { label: "Orders", color: "#10b981" },
 };
 
-export function RevenueChart({ products }: RevenueChartProps) {
+export function RevenueChart({ products = [] }: RevenueChartProps) {
   const [metric, setMetric] = useState<Metric>("revenue");
 
   const chartData = useMemo(() => {
@@ -32,7 +32,7 @@ export function RevenueChart({ products }: RevenueChartProps) {
       .sort((a, b) => (b[metric] as number) - (a[metric] as number))
       .slice(0, 10)
       .map((p) => ({
-        name: p.item_name.length > 20 ? p.item_name.slice(0, 20) + "..." : p.item_name,
+        name: p.item_name || "Unknown",
         value: p[metric],
       }));
   }, [products, metric]);
@@ -67,28 +67,43 @@ export function RevenueChart({ products }: RevenueChartProps) {
           ))}
         </div>
       </div>
+    <ResponsiveContainer width="100%" height={300}>
+    <BarChart 
+      data={chartData} 
+      layout="vertical" 
+      margin={{ left: -100, right: 40, top: 20, bottom: 20 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+      <XAxis 
+        type="number" 
+        tickFormatter={formatValue} 
+        tick={{ fontSize: 11 }} 
+      />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={580}
+        tick={{ fontSize: 10, textAnchor: 'end' }}
+        interval={0}
+      />
+      <Tooltip
+        formatter={(value) => [formatValue(Number(value)), metricConfig[metric].label]}
+        contentStyle={{
+          borderRadius: "8px",
+          border: "1px solid #e2e8f0",
+          fontSize: "12px",
+        }}
+      />
+      <Bar 
+        dataKey="value" 
+        fill={metricConfig[metric].color} 
+        radius={[0, 4, 4, 0]} 
+      />
+    </BarChart>
+  </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis type="number" tickFormatter={formatValue} tick={{ fontSize: 11 }} />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={80}
-            tick={{ fontSize: 11 }}
-          />
-          <Tooltip
-            formatter={(value) => [formatValue(Number(value)), metricConfig[metric].label]}
-            contentStyle={{
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              fontSize: "12px",
-            }}
-          />
-          <Bar dataKey="value" fill={metricConfig[metric].color} radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+
+
     </div>
   );
 }
