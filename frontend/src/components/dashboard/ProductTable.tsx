@@ -26,7 +26,7 @@ export function ProductTable({ products, shopInfo }: ProductTableProps) {
   const [linkFilter, setLinkFilter] = useState<"all" | "with-link" | "no-link">("all");
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
+  const [perPage, setPerPage] = useState(10);
   const showToast = useToastStore((s) => s.showToast);
 
   const handleSort = (key: SortConfig["key"]) => {
@@ -127,10 +127,13 @@ export function ProductTable({ products, shopInfo }: ProductTableProps) {
 
   const columns: { key: keyof GmvProduct; label: string }[] = [
     { key: "revenue", label: "GMV" },
-    { key: "confirmed_revenue", label: "NMV" },
     { key: "clicks", label: "CLICKS" },
     { key: "add_to_cart", label: "ATC" },
-    { key: "orders", label: "ORDERS" },
+    { key: "orders", label: "ĐƠN HÀNG" },
+    { key: "items_sold", label: "ĐÃ BÁN" },
+    { key: "confirmed_revenue", label: "NMV" },
+    { key: "gia_live", label: "GIÁ LIVE" },
+    { key: "giam_stock", label: "GIẢM STOCK" },
   ];
 
   // Build shop suggestions for datalist
@@ -305,9 +308,6 @@ export function ProductTable({ products, shopInfo }: ProductTableProps) {
                   <td className="px-4 py-3 text-right font-medium text-blue-600">
                     {formatCurrency(product.revenue)}
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-emerald-600">
-                    {formatCurrency(product.confirmed_revenue)}
-                  </td>
                   <td className="px-4 py-3 text-right text-slate-600">
                     {(product.clicks || 0).toLocaleString()}
                   </td>
@@ -316,6 +316,18 @@ export function ProductTable({ products, shopInfo }: ProductTableProps) {
                   </td>
                   <td className="px-4 py-3 text-right text-slate-600">
                     {(product.orders || 0).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {(product.items_sold || 0).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-emerald-600">
+                    {formatCurrency(product.confirmed_revenue)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-500">
+                    {product.gia_live ? formatCurrency(product.gia_live) : <span className="text-slate-300">-</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-500">
+                    {product.giam_stock ? formatCurrency(product.giam_stock) : <span className="text-slate-300">-</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {product.link_sp ? (
@@ -387,11 +399,10 @@ export function ProductTable({ products, shopInfo }: ProductTableProps) {
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`rounded-md px-2.5 py-1 text-xs ${
-                    currentPage === page
+                  className={`rounded-md px-2.5 py-1 text-xs ${currentPage === page
                       ? "bg-blue-600 text-white"
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {page}
                 </button>

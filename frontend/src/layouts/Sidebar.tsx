@@ -4,7 +4,6 @@ import {
   BarChart3,
   Clock,
   Users,
-  Wrench,
   Settings,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -16,7 +15,7 @@ const navItems = [
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/history", label: "History", icon: Clock },
   { path: "/host-performance", label: "Host Performance", icon: Users },
-  { path: "/fix-history", label: "Fix History", icon: Wrench },
+  // { path: "/fix-history", label: "Fix History", icon: Wrench },
 ];
 
 export function Sidebar() {

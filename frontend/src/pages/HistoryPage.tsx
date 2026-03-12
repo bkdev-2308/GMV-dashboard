@@ -4,7 +4,7 @@ import { sessionService } from "@/services/session.service";
 import { formatCurrency } from "@/utils/format";
 import { RankBadge } from "@/components/ui/RankBadge";
 import { Spinner } from "@/components/ui/Spinner";
-import { Search, Package, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Search, Package, DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
 
 export function HistoryPage() {
   const [selectedSession, setSelectedSession] = useState("");
@@ -220,8 +220,8 @@ export function HistoryPage() {
       {/* Search + Table */}
       {products.length > 0 && !isLoading && (
         <div className="rounded-xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 p-4">
-            <div className="relative max-w-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+            <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -231,6 +231,18 @@ export function HistoryPage() {
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm focus:border-blue-400 focus:bg-white focus:outline-none"
               />
             </div>
+            <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (selectedSession) params.set("session_id", selectedSession);
+                if (selectedTimeslot) params.set("archived_at", selectedTimeslot);
+                window.location.href = `/api/history/export?${params}`;
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
           </div>
 
           <div className="overflow-x-auto">

@@ -22,7 +22,7 @@ interface StaffProduct {
   session_id: string;
 }
 
-type SortKey = "revenue" | "clicks" | "add_to_cart" | "orders";
+type SortKey = "revenue" | "clicks" | "add_to_cart" | "orders" | "confirmed_revenue";
 
 export function StaffPage() {
   const [query, setQuery] = useState("");
@@ -79,6 +79,7 @@ export function StaffPage() {
     clicks: "CLICKS",
     add_to_cart: "ATC",
     orders: "ORDERS",
+    confirmed_revenue: "NMV",
   };
 
   return (
@@ -166,13 +167,22 @@ export function StaffPage() {
                             )}
                           </div>
                         )}
-                        <span className="truncate font-medium text-slate-800" title={p.item_name}>{p.item_name}</span>
+                        <a
+                          href={`https://shopee.vn/product/${p.shop_id}/${p.item_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate font-medium text-slate-800 hover:text-blue-600 hover:underline"
+                          title={p.item_name}
+                        >
+                          {p.item_name}
+                        </a>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{p.shop_id}</span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-blue-600">{formatCurrency(p.revenue)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-emerald-600">{formatCurrency(p.confirmed_revenue)}</td>
                     <td className="px-4 py-3 text-right text-slate-600">{(p.clicks || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-right text-slate-600">{(p.add_to_cart || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-right text-slate-600">{(p.orders || 0).toLocaleString()}</td>

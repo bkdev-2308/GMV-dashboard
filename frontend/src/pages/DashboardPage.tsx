@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DollarSign,
@@ -8,7 +8,6 @@ import {
   Star,
   RefreshCw,
   LogOut,
-  BarChart3,
 } from "lucide-react";
 import { api } from "@/services/api";
 import { authService } from "@/services/auth.service";
@@ -26,6 +25,7 @@ import type { SessionDataResponse, SessionsResponse, TimeslotsResponse } from "@
 export function DashboardPage() {
   const { currentSessionId, setCurrentSession } = useSessionStore();
   const [selectedTimeslot, setSelectedTimeslot] = useState("");
+  const [mappingMode, setMappingMode] = useState("dl_live");
   const queryClient = useQueryClient();
   const showToast = useToastStore((s) => s.showToast);
 
@@ -35,6 +35,13 @@ export function DashboardPage() {
     queryFn: () => api.get<SessionsResponse>("/api/sessions"),
   });
   const sessions = sessionsData?.success ? sessionsData.sessions : [];
+
+  // Auto-select first session if none selected
+  useEffect(() => {
+    if (!currentSessionId && sessions.length > 0) {
+      setCurrentSession(sessions[0].session_id);
+    }
+  }, [sessions, currentSessionId, setCurrentSession]);
 
   // History timeslots for selected session
   const { data: timeslotsData } = useQuery({
@@ -68,9 +75,10 @@ export function DashboardPage() {
   const products = data?.data ?? [];
   const lastSync = (data as SessionDataResponse)?.last_sync;
 
+
   // Computed stats
-  const totalRevenue = stats?.total_revenue ?? (stats as Record<string, number>)?.total_gmv ?? 0;
-  const totalNmv = stats?.total_confirmed_revenue ?? (stats as Record<string, number>)?.total_nmv ?? 0;
+  const totalRevenue = stats?.total_revenue ?? 0;
+  const totalNmv = stats?.total_confirmed_revenue ?? 0;
   const gap = totalRevenue - totalNmv;
   const withLink = stats?.with_link ?? 0;
   const totalProducts = stats?.total_products ?? products.length;
@@ -165,6 +173,28 @@ export function DashboardPage() {
             ))}
           </select>
         </div>
+
+        <div className="h-6 w-px bg-slate-200" />
+
+        {/* Mapping Mode */}
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            Mapping Mode
+          </label>
+          <select
+            value={mappingMode}
+            onChange={(e) => setMappingMode(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          >
+            <option value="dl_live">📋 + 📡 DL + Live</option>
+            <option value="dl_only">📋 DL Only</option>
+            <option value="live_only">📡 Live Only</option>
+          </select>
+        </div>
       </div>
 
       {/* Stats Grid - 5 cards matching original */}
@@ -200,6 +230,40 @@ export function DashboardPage() {
           color="yellow"
         />
       </div>
+
+      {/* Pinned Products */}
+      {isLive && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-red-800">📌 Sản phẩm đang ghim</span>
+              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white animate-pulse">
+                🔴 LIVE
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-red-400">Tự làm mới sau 30s</span>
+              <button
+                onClick={() => {
+                  showToast("Đang làm mới dữ liệu ghim...", "info");
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                disabled={!currentSessionId}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Làm mới
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 text-sm text-red-600">
+            {!currentSessionId ? (
+              "⚠️ Vui lòng chọn phiên live để xem sản phẩm ghim"
+            ) : (
+              "⭐ Chưa có sản phẩm nào đang ghim cho phiên này"
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Overview Metrics (live stream metrics) */}
       {currentSessionId && isLive && <OverviewMetrics sessionId={currentSessionId} />}
